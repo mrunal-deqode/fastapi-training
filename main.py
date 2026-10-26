@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
+app = FastAPI()
 
 class ContactInfo(BaseModel):
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -12,7 +13,13 @@ class ApplicationCreate(BaseModel):
     contact: ContactInfo
     years_of_experience: int
 
-app = FastAPI()
+class ApplicationResponse(BaseModel):
+    id:int
+    candidate_name:str
+    job_title:str
+    contact:Optional[ContactInfo] = None
+    years_of_experience:Optional[int] = None
+    status: str
 
 
 applications = [
@@ -22,18 +29,18 @@ applications = [
 ]
 
 
-@app.get("/applications")
+@app.get("/applications", response_model=List[ApplicationResponse])
 def list_applications():
     return applications
 
-@app.get("/applications/{application_id}")
+@app.get("/applications/{application_id}", response_model=ApplicationResponse)
 def get_application(application_id: int):
     for application in applications:
         if application["id"] == application_id:
             return application
-    return {"error": "Application not found"}
+    raise HTTPException(status_code=404, detail="Application Not Found")
 
-@app.post("/applications")
+@app.post("/applications",response_model=ApplicationResponse)
 def create_application(application : ApplicationCreate):
     new_application = {
         "id" : len(applications)+1,
