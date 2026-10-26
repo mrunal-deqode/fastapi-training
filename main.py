@@ -1,9 +1,16 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 
+
+class ContactInfo(BaseModel):
+    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    phone: Optional[str] = Field(default=None, min_length=10, max_length=10)
 class ApplicationCreate(BaseModel):
-    candidate_name:str
+    candidate_name:str = Field(min_length=2, max_length=30)
     job_title:str
+    contact: ContactInfo
+    years_of_experience: int
 
 app = FastAPI()
 
@@ -26,12 +33,14 @@ def get_application(application_id: int):
             return application
     return {"error": "Application not found"}
 
-@app.post("/application")
+@app.post("/applications")
 def create_application(application : ApplicationCreate):
     new_application = {
         "id" : len(applications)+1,
         "candidate_name": application.candidate_name,
         "job_title": application.job_title,
+        "contact": application.contact.model_dump(),
+        "years_of_experience": application.years_of_experience,
         "status" : "applied"
     }
     applications.append(new_application)
