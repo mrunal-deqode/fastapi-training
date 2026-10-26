@@ -1,0 +1,8 @@
+Project Charter: Recruitment & Hiring
+
+What problem does it solve, and for whom?
+A single company needs one place where they can post hiring for thier company's different positions. HR have to search and check mail regularly for promising candidates, instead they can simply see the candidate on a simple portal and recruit them. 
+also candidate have to go through lots of problem while searching and appling for a job, sometime they did not find jobs posting according to thier YOE, sometimes job posting already expiers when the candidate see the posting.
+This system helps 2 Groups :- 
+1.)Admins(Hiring Managers) :- post jobs, review applicants for each job, and update each applicant’s status.
+2.)Candidates register once with their profile details, browse and filter jobs, apply, save jobs to a wishlist, and track their application status.
