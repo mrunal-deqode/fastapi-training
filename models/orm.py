@@ -45,9 +45,7 @@ class Application(Base):
     candidate_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
     years_of_experience: Mapped[int]
-    cover_letter: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), default="Applied")
-    internal_notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     candidate: Mapped["User"] = relationship(back_populates="applications")
