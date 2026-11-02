@@ -1,8 +1,49 @@
-Project Charter: Recruitment & Hiring
+
+Project Charter: Recruitment & Hiring Management System
 
 What problem does it solve, and for whom?
-A single company needs one place where they can post hiring for thier company's different positions. HR have to search and check mail regularly for promising candidates, instead they can simply see the candidate on a simple portal and recruit them. 
-also candidate have to go through lots of problem while searching and appling for a job, sometime they did not find jobs posting according to thier YOE, sometimes job posting already expiers when the candidate see the posting.
-This system helps 2 Groups :- 
-1.)Admins(Hiring Managers) :- post jobs, review applicants for each job, and update each applicant’s status.
-2.)Candidates register once with their profile details, browse and filter jobs, apply, save jobs to a wishlist, and track their application status.
+
+A single company needs one centralized platform to manage its recruitment process.
+
+The system allows recruiters to post job openings, review candidates,
+and update application statuses. Candidates can register, maintain
+their profiles, browse available jobs, apply, and track their applications.
+
+The system has three roles:
+
+1. Candidate
+   - Register and log in.
+   - Maintain a reusable candidate profile.
+   - Browse and filter available jobs.
+   - Apply for jobs.
+   - View application status.
+
+2. Admin / Recruiter
+   - Log in.
+   - Create, edit, view, and close jobs.
+   - View applicants for each job.
+   - Filter applications by job and status.
+   - View candidate details and resumes.
+   - Update application status.
+
+3. Super Admin
+   - Manage Admin accounts.
+   - View and deactivate candidates.
+   - Manage all jobs.
+   - Soft-delete or deactivate jobs.
+
+Business Rules:
+- Only Super Admin can create and manage Admin accounts.
+- Admin and Super Admin can create and edit jobs.
+- Candidates cannot apply twice for the same job.
+- Closed jobs cannot accept applications.
+- Deactivated accounts cannot access the system.
+- Records are deactivated instead of permanently deleted.
+- Candidate profiles can be reused across applications.
+
+Project Limitations:
+- Single-company recruitment system.
+- No interview scheduling.
+- No application status history.
+- No multi-company support.
+- Dashboard functionality will be implemented in a future stage.
