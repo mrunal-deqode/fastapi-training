@@ -21,7 +21,7 @@ class ContactInfo(BaseModel):
     phone: str | None = Field(
         default=None, min_length=10, max_length=10
     )
-    
+
 class ApplicationCreate(BaseModel):
     candidate_id: int = Field(gt=0)
     job_id: int = Field(gt=0)
@@ -30,7 +30,7 @@ class ApplicationCreate(BaseModel):
 
 class ApplicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     candidate_id: int
     job_id: int
@@ -68,7 +68,7 @@ class JobCreate(BaseModel):
 
 class JobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     title: str
     description: str
