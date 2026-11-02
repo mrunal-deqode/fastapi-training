@@ -115,6 +115,9 @@ class Application(Base):
     status: Mapped[str] = mapped_column(
         String(30), default="Applied", server_default="Applied"
     )
+    is_active: Mapped[bool] = mapped_column(
+    Boolean, default=True, server_default=text("true")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
