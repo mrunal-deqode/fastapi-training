@@ -1,8 +1,8 @@
-
 from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field, ConfigDict
+from test_security import password
 
 
 ApplicationStatus = Literal[
@@ -14,13 +14,13 @@ ApplicationStatus = Literal[
 ]
 
 
-class ContactInfo(BaseModel):
-    email: str = Field(
-        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-    )
-    phone: str | None = Field(
-        default=None, min_length=10, max_length=10
-    )
+# class ContactInfo(BaseModel):
+#     email: str = Field(
+#         pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+#     )
+#     phone: str | None = Field(
+#         default=None, min_length=10, max_length=10
+#     )
 
 class ApplicationCreate(BaseModel):
     candidate_id: int = Field(gt=0)
@@ -81,3 +81,26 @@ class JobResponse(BaseModel):
     salary_max: int | None = None
     status: Literal["open", "closed"]
     is_active: bool
+
+class CandidateRegister(BaseModel):
+    full_name: str = Field(min_length=2, max_length=100)
+    email: str = Field(
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255
+    )
+    password: str = Field(min_length=6, max_length=100)
+    phone : str | None = Field(default=None, pattern=r"^[0-9]{10}$")
+
+class CandidateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id : int
+    full_name :str | None
+    email :str
+    phone : str | None
+    role : str
+    is_active: bool
+
+class CandidateLogin(BaseModel):
+    email:str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
+    password:str
+
