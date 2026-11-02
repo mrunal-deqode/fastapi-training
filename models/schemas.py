@@ -4,7 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict
 from test_security import password
 
-
 ApplicationStatus = Literal[
     "Applied",
     "Under Review",
@@ -12,15 +11,6 @@ ApplicationStatus = Literal[
     "Selected",
     "Rejected",
 ]
-
-
-# class ContactInfo(BaseModel):
-#     email: str = Field(
-#         pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-#     )
-#     phone: str | None = Field(
-#         default=None, min_length=10, max_length=10
-#     )
 
 class ApplicationCreate(BaseModel):
     candidate_id: int = Field(gt=0)
@@ -104,3 +94,27 @@ class CandidateLogin(BaseModel):
     email:str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
     password:str
 
+class CandidateProfileCreate(BaseModel):
+    address : str | None = Field(default=None, max_length=255)
+    education : str | None = None
+    experience : str | None =None
+    skills : str | None = None
+    resume_url : str | None = Field(default=None, max_length=500)
+    
+class CandidateProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    address: str |None
+    education: str| None
+    experience: str |None
+    skills : str|None
+    resume_url: str|None
+
+class CandidateProfileUpdate(BaseModel):
+    address: str | None = Field(default=None, max_length=255)
+    education: str | None = None
+    experience: str | None = None
+    skills: str | None = None
+    resume_url: str | None = Field(default=None, max_length=500)

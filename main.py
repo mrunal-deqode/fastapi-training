@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from routers import applications, jobs, auth
+from routers import applications, jobs, auth, candidates
 
 
 app = FastAPI(title="Recruitment & Hiring")
@@ -14,6 +14,7 @@ app = FastAPI(title="Recruitment & Hiring")
 app.include_router(applications.router)
 app.include_router(jobs.router)
 app.include_router(auth.router)
+app.include_router(candidates.router)
 
 
 @app.get("/")
