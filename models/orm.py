@@ -11,6 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     text,
+    Float
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -108,7 +109,7 @@ class Application(Base):
     candidate_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
 
-    years_of_experience: Mapped[int]
+    years_of_experience: Mapped[float]
     cover_letter: Mapped[str | None] = mapped_column(Text)
     internal_notes: Mapped[str | None] = mapped_column(Text)
 

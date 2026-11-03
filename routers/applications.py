@@ -5,13 +5,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.orm import Application, User, Job
-from models.schemas import (
-    ApplicationCreate,
-    ApplicationResponse,
-    ApplicationUpdate,
-    ApplicationReplace,
-    StatusUpdate,
-)
+from models.schemas import (ApplicantDetailsResponse, ApplicationCreate, ApplicationReplace,
+                            ApplicationResponse, ApplicationUpdate, StatusUpdate)
 
 router = APIRouter(
     prefix="/applications",
@@ -97,6 +92,28 @@ def get_applications(db: Session = Depends(get_db)):
     return applications
 
 
+@router.get("/my-applications", response_model=list[ApplicationResponse])
+def get_my_application(user_id: int, db: Session = Depends(get_db)):
+    candidate = db.query(User).filter(
+        User.id == user_id,
+        User.role == "candidate",
+        User.is_active == True,
+    ).first()
+
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active candidate not found",
+        )
+
+    application = db.query(Application).filter(
+        Application.candidate_id == user_id,
+        Application.is_active.is_(True)
+    ).all()
+
+    return application
+
+
 @router.get(
     "/{application_id}",
     response_model=ApplicationResponse,
@@ -128,7 +145,6 @@ def replace_application(
     data: ApplicationReplace,
     db: Session = Depends(get_db),
 ):
-    # Find the existing active application
     application = db.query(Application).filter(
         Application.id == application_id,
         Application.is_active == True,
@@ -140,7 +156,6 @@ def replace_application(
             detail="Application not found",
         )
 
-    # Check whether the candidate exists and is active
     candidate = db.query(User).filter(
         User.id == data.candidate_id,
         User.role == "candidate",
@@ -153,7 +168,6 @@ def replace_application(
             detail="Active candidate not found",
         )
 
-    # Check whether the job exists and is open
     job = db.query(Job).filter(
         Job.id == data.job_id,
         Job.is_active == True,
@@ -166,7 +180,6 @@ def replace_application(
             detail="Active open job not found",
         )
 
-    # Check for duplicate application
     existing_application = db.query(Application).filter(
         Application.candidate_id == data.candidate_id,
         Application.job_id == data.job_id,
@@ -179,7 +192,6 @@ def replace_application(
             detail="Candidate has already applied for this job",
         )
 
-    # Replace editable fields
     application.candidate_id = data.candidate_id
     application.job_id = data.job_id
     application.years_of_experience = data.years_of_experience
@@ -197,6 +209,7 @@ def replace_application(
         )
 
     return application
+
 
 @router.patch("/{application_id}", response_model=ApplicationResponse)
 def update_application(
@@ -240,6 +253,7 @@ def update_application(
 
     return application
 
+
 @router.delete("/{application_id}", status_code=204)
 def delete_application(
     application_id: int,
@@ -261,3 +275,46 @@ def delete_application(
     db.commit()
 
     return None
+
+
+@router.get("/admin/jobs/{job_id}/appliactions", response_model=list[ApplicantDetailsResponse])
+def get_job_applications(job_id: int, admin_id: int, db: Session = Depends(get_db)):
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True)
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+    jobs = db.query(Job).filter(
+        Job.id == job_id,
+        Job.created_by == admin_id
+    ).all()
+
+    if not jobs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Jobs Not Found")
+
+    applications = db.query(Application).join(
+        User, Application.candidate_id == User.id
+    ).filter(
+        Application.job_id == job_id,
+        Application.is_active.is_(True)
+    ).all()
+
+    return [
+        {
+            "application_id": application.id,
+            "candidate_id": application.candidate_id,
+            "candidate_name": application.candidate.full_name,
+            "candidate_email": application.candidate.email,
+            "candidate_phone": application.candidate.phone,
+            "years_of_experience": application.years_of_experience,
+            "cover_letter": application.cover_letter,
+            "status": application.status,
+        }
+        for application in applications
+    ]
