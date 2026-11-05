@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.orm import Application, User, Job
-from models.schemas import (ApplicantDetailsResponse, ApplicationCreate, ApplicationReplace,
-                            ApplicationResponse, ApplicationUpdate, StatusUpdate)
+from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsResponse,
+                            ApplicationCreate, ApplicationReplace, ApplicationResponse, ApplicationUpdate, StatusUpdate)
 
 router = APIRouter(
     prefix="/applications",
@@ -318,3 +318,104 @@ def get_job_applications(job_id: int, admin_id: int, db: Session = Depends(get_d
         }
         for application in applications
     ]
+
+
+@router.get(
+    "/admin/applications/{application_id}",
+    response_model=AdminApplicantDetailResponse,
+)
+def get_admin_applicant_details(
+    application_id: int,
+    admin_id: int,
+    db: Session = Depends(get_db),
+):
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True),
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active admin not found",
+        )
+
+    application = db.query(Application).join(
+        Job,
+        Application.job_id == Job.id,
+    ).filter(
+        Application.id == application_id,
+        Application.is_active.is_(True),
+        Job.created_by == admin_id,
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found or you don't have permission to view it",
+        )
+
+    candidate = application.candidate
+    profile = candidate.profile
+
+    return {
+        "application_id": application.id,
+        "job_id": application.job_id,
+        "candidate_id": candidate.id,
+        "candidate_name": candidate.full_name,
+        "candidate_email": candidate.email,
+        "candidate_phone": candidate.phone,
+        "years_of_experience": application.years_of_experience,
+        "cover_letter": application.cover_letter,
+        "status": application.status,
+        "education": profile.education if profile else None,
+        "experience": profile.experience if profile else None,
+        "skills": profile.skills if profile else None,
+        "resume_url": profile.resume_url if profile else None,
+    }
+
+
+@router.patch(
+    "/admin/applications/{application_id}/status",
+    response_model=ApplicationResponse,
+)
+def update_application_status(
+    application_id: int,
+    admin_id: int,
+    data: StatusUpdate,
+    db: Session = Depends(get_db)
+):
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True)
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active admin not found"
+        )
+
+    application = db.query(Application).join(
+        Job,
+        Application.job_id == Job.id
+    ).filter(
+        Application.id == application_id,
+        Application.is_active.is_(True),
+        Job.created_by == admin_id
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found or you don't have permission to update it"
+        )
+
+    application.status = data.status
+
+    db.commit()
+    db.refresh(application)
+
+    return application

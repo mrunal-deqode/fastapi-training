@@ -143,3 +143,45 @@ class ApplicantDetailsResponse(BaseModel):
     years_of_experience: float
     cover_letter: str | None
     status: ApplicationStatus
+
+
+class AdminApplicantDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    application_id: int
+    job_id: int
+    candidate_id: int
+    candidate_name: str | None
+    candidate_email: str
+    candidate_phone: str | None
+
+    years_of_experience: float
+    cover_letter: str | None
+    status: ApplicationStatus
+
+    education: str | None
+    experience: str | None
+    skills: str | None
+    resume_url: str | None
+
+
+class AdminCreate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=100)
+    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8)
+    phone: str | None = Field(default=None, pattern=r"^\d{10}$")
+
+
+class AdminCreateResopnse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    full_name: str | None
+    email: str
+    phone: str | None
+    role: str
+    is_active: bool
+
+
+class JobStatusUpdate(BaseModel):
+    status: Literal["open", "closed"]

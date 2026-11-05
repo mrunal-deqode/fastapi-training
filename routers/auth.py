@@ -62,3 +62,21 @@ def login_admin(data: CandidateLogin, db: Session = Depends(get_db)):
                             detail="Account is Deactivated")
 
     return admin
+
+
+@router.post("/super-admin/login", response_model=CandidateResponse)
+def login_super_admin(data: CandidateLogin, db: Session = Depends(get_db)):
+    super_admin = db.query(User).filter(
+        User.email == data.email,
+        User.role == "super_admin",
+    ).first()
+
+    if not super_admin or not verify_password(data.password, super_admin.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+    if not super_admin.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="User Acount is Deactivated")
+
+    return super_admin
