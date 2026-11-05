@@ -1,62 +1,17 @@
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from models.schemas import (
-    ApplicationCreate,
-    ApplicationResponse,
-    ApplicationUpdate,
-    StatusUpdate,
-)
+from database import get_db
+from models.orm import Application, User, Job
+from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsResponse,
+                            ApplicationCreate, ApplicationReplace, ApplicationResponse, ApplicationUpdate, StatusUpdate)
 
 router = APIRouter(
     prefix="/applications",
     tags=["Applications"],
 )
-
-applications = [
-    {
-        "id": 1,
-        "candidate_name": "Asha Verma",
-        "job_title": "Backend Developer",
-        "status": "Applied",
-    },
-    {
-        "id": 2,
-        "candidate_name": "Rohan Mehta",
-        "job_title": "QA Engineer",
-        "status": "Under Review",
-    },
-    {
-        "id": 3,
-        "candidate_name": "Neha Singh",
-        "job_title": "Backend Developer",
-        "status": "Shortlisted",
-    },
-]
-
-
-def find_application(application_id: int):
-    for application in applications:
-        if application["id"] == application_id:
-            return application
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Application not found",
-    )
-
-
-@router.get("", response_model=list[ApplicationResponse])
-def list_applications():
-    return applications
-
-
-@router.get(
-    "/{application_id}",
-    response_model=ApplicationResponse,
-)
-def get_application(application_id: int):
-    return find_application(application_id)
 
 
 @router.post(
@@ -64,21 +19,121 @@ def get_application(application_id: int):
     response_model=ApplicationResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_application(application: ApplicationCreate):
-    new_application = {
-        "id": max(
-            (item["id"] for item in applications),
-            default=0,
-        ) + 1,
-        "candidate_name": application.candidate_name,
-        "job_title": application.job_title,
-        "contact": application.contact.model_dump(),
-        "years_of_experience": application.years_of_experience,
-        "status": "Applied",
-    }
+def create_application(
+    data: ApplicationCreate,
+    db: Session = Depends(get_db),
+):
+    candidate = db.query(User).filter(
+        User.id == data.candidate_id,
+        User.role == "candidate",
+        User.is_active == True,
+    ).first()
 
-    applications.append(new_application)
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active candidate not found",
+        )
+
+    job = db.query(Job).filter(
+        Job.id == data.job_id,
+        Job.is_active == True,
+        Job.status == "open",
+    ).first()
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active open job not found",
+        )
+
+    existing_application = db.query(Application).filter(
+        Application.candidate_id == data.candidate_id,
+        Application.job_id == data.job_id,
+    ).first()
+
+    if existing_application:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Candidate has already applied for this job",
+        )
+
+    new_application = Application(
+        candidate_id=data.candidate_id,
+        job_id=data.job_id,
+        years_of_experience=data.years_of_experience,
+        cover_letter=data.cover_letter,
+    )
+
+    try:
+        db.add(new_application)
+        db.commit()
+        db.refresh(new_application)
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Application already exists",
+        )
+
     return new_application
+
+
+@router.get(
+    "",
+    response_model=list[ApplicationResponse],
+)
+def get_applications(db: Session = Depends(get_db)):
+    applications = db.query(Application).filter(
+        Application.is_active == True
+    ).all()
+
+    return applications
+
+
+@router.get("/my-applications", response_model=list[ApplicationResponse])
+def get_my_application(user_id: int, db: Session = Depends(get_db)):
+    candidate = db.query(User).filter(
+        User.id == user_id,
+        User.role == "candidate",
+        User.is_active == True,
+    ).first()
+
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active candidate not found",
+        )
+
+    application = db.query(Application).filter(
+        Application.candidate_id == user_id,
+        Application.is_active.is_(True)
+    ).all()
+
+    return application
+
+
+@router.get(
+    "/{application_id}",
+    response_model=ApplicationResponse,
+)
+def get_application(
+    application_id: int,
+    db: Session = Depends(get_db),
+):
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.is_active == True,
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    return application
 
 
 @router.put(
@@ -87,57 +142,280 @@ def create_application(application: ApplicationCreate):
 )
 def replace_application(
     application_id: int,
-    data: ApplicationCreate,
+    data: ApplicationReplace,
+    db: Session = Depends(get_db),
 ):
-    application = find_application(application_id)
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.is_active == True,
+    ).first()
 
-    application.update({
-        "candidate_name": data.candidate_name,
-        "job_title": data.job_title,
-        "contact": data.contact.model_dump(),
-        "years_of_experience": data.years_of_experience,
-    })
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    candidate = db.query(User).filter(
+        User.id == data.candidate_id,
+        User.role == "candidate",
+        User.is_active == True,
+    ).first()
+
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active candidate not found",
+        )
+
+    job = db.query(Job).filter(
+        Job.id == data.job_id,
+        Job.is_active == True,
+        Job.status == "open",
+    ).first()
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active open job not found",
+        )
+
+    existing_application = db.query(Application).filter(
+        Application.candidate_id == data.candidate_id,
+        Application.job_id == data.job_id,
+        Application.id != application_id,
+    ).first()
+
+    if existing_application:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Candidate has already applied for this job",
+        )
+
+    application.candidate_id = data.candidate_id
+    application.job_id = data.job_id
+    application.years_of_experience = data.years_of_experience
+    application.cover_letter = data.cover_letter
+
+    try:
+        db.commit()
+        db.refresh(application)
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Application conflicts with an existing record",
+        )
 
     return application
 
 
-@router.patch(
-    "/{application_id}",
-    response_model=ApplicationResponse,
-)
+@router.patch("/{application_id}", response_model=ApplicationResponse)
 def update_application(
     application_id: int,
     data: ApplicationUpdate,
+    db: Session = Depends(get_db)
 ):
-    application = find_application(application_id)
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.is_active == True
+    ).first()
 
-    changes = data.model_dump(
-        exclude_unset=True,
-        exclude_none=True,
-    )
+    if not application:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found"
+        )
 
-    application.update(changes)
+    changes = data.model_dump(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(
+            status_code=400,
+            detail="No fields provided for update"
+        )
+
+    if "years_of_experience" in changes:
+        if changes["years_of_experience"] is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Years of experience cannot be null"
+            )
+
+        application.years_of_experience = changes["years_of_experience"]
+
+    if "cover_letter" in changes:
+        application.cover_letter = changes["cover_letter"]
+
+    db.commit()
+    db.refresh(application)
+
     return application
+
+
+@router.delete("/{application_id}", status_code=204)
+def delete_application(
+    application_id: int,
+    db: Session = Depends(get_db)
+):
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.is_active == True
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found"
+        )
+
+    application.is_active = False
+
+    db.commit()
+
+    return None
+
+
+@router.get("/admin/jobs/{job_id}/appliactions", response_model=list[ApplicantDetailsResponse])
+def get_job_applications(job_id: int, admin_id: int, db: Session = Depends(get_db)):
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True)
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+    jobs = db.query(Job).filter(
+        Job.id == job_id,
+        Job.created_by == admin_id
+    ).all()
+
+    if not jobs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Jobs Not Found")
+
+    applications = db.query(Application).join(
+        User, Application.candidate_id == User.id
+    ).filter(
+        Application.job_id == job_id,
+        Application.is_active.is_(True)
+    ).all()
+
+    return [
+        {
+            "application_id": application.id,
+            "candidate_id": application.candidate_id,
+            "candidate_name": application.candidate.full_name,
+            "candidate_email": application.candidate.email,
+            "candidate_phone": application.candidate.phone,
+            "years_of_experience": application.years_of_experience,
+            "cover_letter": application.cover_letter,
+            "status": application.status,
+        }
+        for application in applications
+    ]
+
+
+@router.get(
+    "/admin/applications/{application_id}",
+    response_model=AdminApplicantDetailResponse,
+)
+def get_admin_applicant_details(
+    application_id: int,
+    admin_id: int,
+    db: Session = Depends(get_db),
+):
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True),
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active admin not found",
+        )
+
+    application = db.query(Application).join(
+        Job,
+        Application.job_id == Job.id,
+    ).filter(
+        Application.id == application_id,
+        Application.is_active.is_(True),
+        Job.created_by == admin_id,
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found or you don't have permission to view it",
+        )
+
+    candidate = application.candidate
+    profile = candidate.profile
+
+    return {
+        "application_id": application.id,
+        "job_id": application.job_id,
+        "candidate_id": candidate.id,
+        "candidate_name": candidate.full_name,
+        "candidate_email": candidate.email,
+        "candidate_phone": candidate.phone,
+        "years_of_experience": application.years_of_experience,
+        "cover_letter": application.cover_letter,
+        "status": application.status,
+        "education": profile.education if profile else None,
+        "experience": profile.experience if profile else None,
+        "skills": profile.skills if profile else None,
+        "resume_url": profile.resume_url if profile else None,
+    }
 
 
 @router.patch(
-    "/{application_id}/status",
+    "/admin/applications/{application_id}/status",
     response_model=ApplicationResponse,
 )
-def update_status(
+def update_application_status(
     application_id: int,
+    admin_id: int,
     data: StatusUpdate,
+    db: Session = Depends(get_db)
 ):
-    application = find_application(application_id)
-    application["status"] = data.status
+    admin = db.query(User).filter(
+        User.id == admin_id,
+        User.role == "admin",
+        User.is_active.is_(True)
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active admin not found"
+        )
+
+    application = db.query(Application).join(
+        Job,
+        Application.job_id == Job.id
+    ).filter(
+        Application.id == application_id,
+        Application.is_active.is_(True),
+        Job.created_by == admin_id
+    ).first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found or you don't have permission to update it"
+        )
+
+    application.status = data.status
+
+    db.commit()
+    db.refresh(application)
 
     return application
-
-
-@router.delete(
-    "/{application_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_application(application_id: int):
-    application = find_application(application_id)
-    applications.remove(application)

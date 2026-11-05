@@ -1,66 +1,62 @@
 
-from fastapi import APIRouter, HTTPException, Header, Response, status
+from fastapi import APIRouter, HTTPException, Header, Response, status, Query, Depends
 
 from models.schemas import JobCreate, JobResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from models.orm import Job, User
 
 router = APIRouter(
     prefix="/jobs",
     tags=["Jobs"],
 )
 
-jobs = [
-    {
-        "id": 1,
-        "title": "Backend Developer",
-        "description": "Build and maintain REST APIs",
-        "job_type": "Full-time",
-        "deadline": "2026-12-31",
-        "location": "Indore",
-        "min_experience_years": 1,
-        "max_experience_years": 3,
-        "salary_min": 300000,
-        "salary_max": 600000,
-        "status": "open",
-        "is_active": True,
-    },
-    {
-        "id": 2,
-        "title": "QA Engineer",
-        "description": "Test and verify product releases",
-        "job_type": "Part-time",
-        "deadline": "2026-11-30",
-        "location": "Pune",
-        "min_experience_years": 0,
-        "max_experience_years": 2,
-        "salary_min": 200000,
-        "salary_max": 400000,
-        "status": "open",
-        "is_active": True,
-    },
-]
-
 
 @router.get("", response_model=list[JobResponse])
-def list_jobs(job_type: str | None = None):
+def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_length=30), db: Session = Depends(get_db)):
+    query = db.query(Job).filter(
+        Job.is_active.is_(True),
+        Job.status == "open"
+    )
+
     if job_type:
-        return [
-            job for job in jobs
-            if job["job_type"].lower() == job_type.lower()
-        ]
+        query = query.filter(Job.job_type.ilike(job_type))
+
+    return query.all()
+
+
+@router.get("/manage", response_model=list[JobResponse])
+def get_all_job_for_admin(created_by: int, db: Session = Depends(get_db)):
+    admin = db.query(User).filter(
+        User.id == created_by,
+        User.role == "admin",
+        User.is_active.is_(True)
+    ).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+    jobs = db.query(Job).filter(Job.created_by == created_by).all()
 
     return jobs
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: int):
-    for job in jobs:
-        if job["id"] == job_id:
-            return job
+def get_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.is_active.is_(True),
+        Job.status == "open"
+    ).first()
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Job not found",
-    )
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+
+    return job
 
 
 @router.post(
@@ -68,15 +64,28 @@ def get_job(job_id: int):
     response_model=JobResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_job(job: JobCreate):
-    new_job = {
-        "id": max((item["id"] for item in jobs), default=0) + 1,
-        **job.model_dump(),
-        "status": "open",
-        "is_active": True,
-    }
+def create_job(job_data: JobCreate, created_by: int, db: Session = Depends(get_db)):
+    recruiter = db.query(User).filter(
+        User.id == created_by,
+        User.role == "admin",
+        User.is_active.is_(True),
+    ).first()
 
-    jobs.append(new_job)
+    if not recruiter:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Recruiter Not found")
+
+    new_job = Job(
+        **job_data.model_dump(),
+        created_by=created_by,
+        status="open",
+        is_active=True
+    )
+
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+
     return new_job
 
 
