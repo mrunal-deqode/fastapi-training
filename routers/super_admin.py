@@ -2,31 +2,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.schemas import (AdminCreate, AdminCreateResopnse, CandidateResponse, JobCreate,
                             JobResponse, JobStatusUpdate)
-import routers
 from sqlalchemy.orm import Session
 from database import get_db
 from models.orm import Job, User
-from test_security import hashed_password, password
 from utils.security import hash_password
+from utils.dependencies import require_roles
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
 
 
 @router.post("/create-admin", response_model=AdminCreateResopnse, status_code=status.HTTP_201_CREATED)
-def create_admin(data: AdminCreate, super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
+def create_admin(data: AdminCreate, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
+    existing_admin = db.query(User).filter(User.email == data.email).first()
 
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
-    exising_admin = db.query(User).filter(User.email == data.email).first()
-
-    if exising_admin:
+    if existing_admin:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="User with same details is already Registered")
 
@@ -47,34 +36,14 @@ def create_admin(data: AdminCreate, super_admin_id: int, db: Session = Depends(g
 
 
 @router.get("/get-admins", response_model=list[AdminCreateResopnse])
-def get_all_admins(super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_all_admins(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     admins = db.query(User).filter(User.role == "admin").all()
 
     return admins
 
 
 @router.get("/get-admin-details", response_model=AdminCreateResopnse)
-def get_admin_details(super_admin_id: int, admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_admin_details(admin_id: int, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     admin_details = db.query(User).filter(
         User.id == admin_id, User.role == "admin").first()
 
@@ -86,17 +55,7 @@ def get_admin_details(super_admin_id: int, admin_id: int, db: Session = Depends(
 
 
 @router.patch("/deactivate-admin")
-def deactivate_admin(admin_id: int, super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def deactivate_admin(admin_id: int, super_admin: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     admin_details = db.query(User).filter(
         User.id == admin_id, User.role == "admin").first()
 
@@ -117,18 +76,8 @@ def deactivate_admin(admin_id: int, super_admin_id: int, db: Session = Depends(g
     }
 
 
-@router.patch("/reacticate-admin")
-def reacticate_admin(super_admin_id: int, admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+@router.patch("/reactivate-admin")
+def reacticate_admin(admin_id: int, super_admin: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     admin_details = db.query(User).filter(
         User.id == admin_id, User.role == "admin").first()
 
@@ -148,34 +97,14 @@ def reacticate_admin(super_admin_id: int, admin_id: int, db: Session = Depends(g
 
 
 @router.get("/get-candidates", response_model=list[CandidateResponse])
-def get_all_candidates(super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_all_candidates(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     user_details = db.query(User).filter(User.role == "candidate").all()
 
     return user_details
 
 
 @router.get("/get-candidate-details", response_model=CandidateResponse)
-def get_candidate_details(super_admin_id: int, user_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_candidate_details(user_id: int, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     user_details = db.query(User).filter(
         User.id == user_id, User.role == "candidate").first()
 
@@ -187,17 +116,7 @@ def get_candidate_details(super_admin_id: int, user_id: int, db: Session = Depen
 
 
 @router.patch("/deactivate-candidate")
-def deactivate_candidate(user_id: int, super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def deactivate_candidate(user_id: int, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     user_details = db.query(User).filter(
         User.id == user_id, User.role == "candidate").first()
 
@@ -214,22 +133,12 @@ def deactivate_candidate(user_id: int, super_admin_id: int, db: Session = Depend
     db.commit()
 
     return {
-        "message": "User Deacticated Succesfully",
+        "message": "User Deactivated Succesfully",
     }
 
 
-@router.patch("/reacticate-candidate")
-def reacticate_candidate(super_admin_id: int, user_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+@router.patch("/reactivate-candidate")
+def reacticate_candidate(user_id: int, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     user_details = db.query(User).filter(
         User.id == user_id, User.role == "candidate").first()
 
@@ -245,38 +154,18 @@ def reacticate_candidate(super_admin_id: int, user_id: int, db: Session = Depend
 
     db.commit()
 
-    return {"message": "User Acticated Succesfully"}
+    return {"message": "User Activated Succesfully"}
 
 
 @router.get("/get-jobs", response_model=list[JobResponse])
-def get_all_jobs(super_admin_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_all_jobs(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     job_list = db.query(Job).all()
 
     return job_list
 
 
 @router.get("/get-job-detail", response_model=JobResponse)
-def get_job_details(super_admin_id: int, job_id: int, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def get_job_details(job_id: int, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     job_detail = db.query(Job).filter(Job.id == job_id).first()
 
     if not job_detail:
@@ -286,18 +175,8 @@ def get_job_details(super_admin_id: int, job_id: int, db: Session = Depends(get_
     return job_detail
 
 
-@router.put("/update-job", response_model=JobCreate)
-def update_any_job(job_id: int, super_admin_id: int, data: JobCreate, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+@router.put("/update-job", response_model=JobResponse)
+def update_any_job(job_id: int, data: JobCreate, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     existing_job = db.query(Job).filter(
         Job.id == job_id, Job.is_active.is_(True)).first()
 
@@ -322,17 +201,7 @@ def update_any_job(job_id: int, super_admin_id: int, data: JobCreate, db: Sessio
 
 
 @router.patch("/update-status", response_model=JobResponse)
-def update_job_status(job_id: int, super_admin_id: int, data: JobStatusUpdate, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id,
-        User.role == "super_admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
+def update_job_status(job_id: int, data: JobStatusUpdate, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     job = db.query(Job).filter(Job.id == job_id,
                                Job.is_active.is_(True)).first()
 
@@ -352,33 +221,26 @@ def update_job_status(job_id: int, super_admin_id: int, data: JobStatusUpdate, d
     return job
 
 
-@router.post("/create-super-admin", response_model=AdminCreateResopnse)
-def create_super_admin(super_admin_id: int, data: AdminCreate, db: Session = Depends(get_db)):
-    super_admin = db.query(User).filter(
-        User.id == super_admin_id, User.role == "super_admin", User.is_active.is_(True)).first()
+# @router.post("/create-super-admin", response_model=AdminCreateResopnse)
+# def create_super_admin(data: AdminCreate, current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
+#     existing_super_admin = db.query(User).filter(
+#         User.email == data.email).first()
 
-    if not super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+#     if existing_super_admin:
+#         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+#                             detail="User already registered")
 
-    existing_super_admin = db.query(User).filter(
-        User.email == data.email).first()
+#     new_super_admin = User(
+#         full_name=data.full_name,
+#         email=data.email,
+#         hashed_password=hash_password(data.password),
+#         phone=data.phone,
+#         role="super_admin",
+#         is_active=True
+#     )
 
-    if existing_super_admin:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="User already registered")
+#     db.add(new_super_admin)
+#     db.commit()
+#     db.refresh(new_super_admin)
 
-    new_super_admin = User(
-        full_name=data.full_name,
-        email=data.email,
-        hashed_password=hash_password(data.password),
-        phone=data.phone,
-        role="super_admin",
-        is_active=True
-    )
-
-    db.add(new_super_admin)
-    db.commit()
-    db.refresh(new_super_admin)
-
-    return new_super_admin
+#     return new_super_admin

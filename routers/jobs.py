@@ -5,6 +5,7 @@ from models.schemas import JobCreate, JobResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from models.orm import Job, User
+from utils.dependencies import require_roles
 
 router = APIRouter(
     prefix="/jobs",
@@ -26,18 +27,8 @@ def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_lengt
 
 
 @router.get("/manage", response_model=list[JobResponse])
-def get_all_job_for_admin(created_by: int, db: Session = Depends(get_db)):
-    admin = db.query(User).filter(
-        User.id == created_by,
-        User.role == "admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-
-    jobs = db.query(Job).filter(Job.created_by == created_by).all()
+def get_all_job_for_admin(current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    jobs = db.query(Job).filter(Job.created_by == current_user.id).all()
 
     return jobs
 
@@ -59,14 +50,10 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     return job
 
 
-@router.post(
-    "",
-    response_model=JobResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_job(job_data: JobCreate, created_by: int, db: Session = Depends(get_db)):
+@router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+def create_job(job_data: JobCreate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
     recruiter = db.query(User).filter(
-        User.id == created_by,
+        User.id == current_user.id,
         User.role == "admin",
         User.is_active.is_(True),
     ).first()
@@ -77,7 +64,7 @@ def create_job(job_data: JobCreate, created_by: int, db: Session = Depends(get_d
 
     new_job = Job(
         **job_data.model_dump(),
-        created_by=created_by,
+        created_by=current_user.id,
         status="open",
         is_active=True
     )

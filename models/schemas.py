@@ -20,6 +20,12 @@ class ApplicationCreate(BaseModel):
     cover_letter: str | None = None
 
 
+class CandidateApplicationCreate(BaseModel):
+    job_id: int = Field(gt=0)
+    years_of_experience: float = Field(ge=0)
+    cover_letter: str | None = None
+
+
 class ApplicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -185,3 +191,10 @@ class AdminCreateResopnse(BaseModel):
 
 class JobStatusUpdate(BaseModel):
     status: Literal["open", "closed"]
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    role: str
