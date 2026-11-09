@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.orm import User
+from models.orm import User, RevokedToken
 from utils.jwt import verify_token
 from test_jwt import payload
 
@@ -14,10 +14,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                          detail="Cannot validate credential", headers={"WWW-Authenticate": "Bearer"})
 
-    # print(token)
     payload = verify_token(token)
 
     if payload.get("type") != "access":
+        raise credential_exception
+
+    jti = payload.get("jti")
+
+    revoked_token = db.query(RevokedToken).filter(
+        RevokedToken.jti == jti
+    ).first()
+
+    if revoked_token:
         raise credential_exception
 
     user_id = payload.get("sub")

@@ -49,7 +49,10 @@ def verify_token(token: str):
         payload = jwt.decode(
             token,
             JWT_SECRET_KEY,
-            algorithms=[JWT_ALGORITHM]
+            algorithms=[JWT_ALGORITHM],
+            options={
+                "require": ["sub", "role", "exp", "type", "jti"]
+            }
         )
 
         return payload
