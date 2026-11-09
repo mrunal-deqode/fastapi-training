@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.orm import Application, User, Job
 from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsResponse,
-                            ApplicationCreate, ApplicationReplace, ApplicationResponse, ApplicationUpdate, StatusUpdate)
+                            ApplicationReplace, ApplicationResponse, ApplicationUpdate,
+                            CandidateApplicationCreate, StatusUpdate)
+from utils.dependencies import require_roles
 
 router = APIRouter(
     prefix="/applications",
@@ -14,27 +16,8 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "",
-    response_model=ApplicationResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_application(
-    data: ApplicationCreate,
-    db: Session = Depends(get_db),
-):
-    candidate = db.query(User).filter(
-        User.id == data.candidate_id,
-        User.role == "candidate",
-        User.is_active == True,
-    ).first()
-
-    if not candidate:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active candidate not found",
-        )
-
+@router.post("", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED)
+def create_application(data: CandidateApplicationCreate, current_user: User = Depends(require_roles("candidate")), db: Session = Depends(get_db)):
     job = db.query(Job).filter(
         Job.id == data.job_id,
         Job.is_active == True,
@@ -48,7 +31,7 @@ def create_application(
         )
 
     existing_application = db.query(Application).filter(
-        Application.candidate_id == data.candidate_id,
+        Application.candidate_id == current_user.id,
         Application.job_id == data.job_id,
     ).first()
 
@@ -59,7 +42,7 @@ def create_application(
         )
 
     new_application = Application(
-        candidate_id=data.candidate_id,
+        candidate_id=current_user.id,
         job_id=data.job_id,
         years_of_experience=data.years_of_experience,
         cover_letter=data.cover_letter,
@@ -80,11 +63,8 @@ def create_application(
     return new_application
 
 
-@router.get(
-    "",
-    response_model=list[ApplicationResponse],
-)
-def get_applications(db: Session = Depends(get_db)):
+@router.get("", response_model=list[ApplicationResponse])
+def get_applications(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     applications = db.query(Application).filter(
         Application.is_active == True
     ).all()
@@ -93,21 +73,10 @@ def get_applications(db: Session = Depends(get_db)):
 
 
 @router.get("/my-applications", response_model=list[ApplicationResponse])
-def get_my_application(user_id: int, db: Session = Depends(get_db)):
-    candidate = db.query(User).filter(
-        User.id == user_id,
-        User.role == "candidate",
-        User.is_active == True,
-    ).first()
-
-    if not candidate:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active candidate not found",
-        )
+def get_my_application(current_user: User = Depends(require_roles("candidate")), db: Session = Depends(get_db)):
 
     application = db.query(Application).filter(
-        Application.candidate_id == user_id,
+        Application.candidate_id == current_user.id,
         Application.is_active.is_(True)
     ).all()
 
@@ -278,21 +247,12 @@ def delete_application(
 
 
 @router.get("/admin/jobs/{job_id}/appliactions", response_model=list[ApplicantDetailsResponse])
-def get_job_applications(job_id: int, admin_id: int, db: Session = Depends(get_db)):
-    admin = db.query(User).filter(
-        User.id == admin_id,
-        User.role == "admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+def get_job_applications(job_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
 
     jobs = db.query(Job).filter(
         Job.id == job_id,
-        Job.created_by == admin_id
-    ).all()
+        Job.created_by == current_user.id
+    ).first()
 
     if not jobs:
         raise HTTPException(
@@ -320,26 +280,8 @@ def get_job_applications(job_id: int, admin_id: int, db: Session = Depends(get_d
     ]
 
 
-@router.get(
-    "/admin/applications/{application_id}",
-    response_model=AdminApplicantDetailResponse,
-)
-def get_admin_applicant_details(
-    application_id: int,
-    admin_id: int,
-    db: Session = Depends(get_db),
-):
-    admin = db.query(User).filter(
-        User.id == admin_id,
-        User.role == "admin",
-        User.is_active.is_(True),
-    ).first()
-
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active admin not found",
-        )
+@router.get("/admin/applications/{application_id}", response_model=AdminApplicantDetailResponse)
+def get_admin_applicant_details(application_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
 
     application = db.query(Application).join(
         Job,
@@ -347,7 +289,7 @@ def get_admin_applicant_details(
     ).filter(
         Application.id == application_id,
         Application.is_active.is_(True),
-        Job.created_by == admin_id,
+        Job.created_by == current_user.id,
     ).first()
 
     if not application:
@@ -376,35 +318,15 @@ def get_admin_applicant_details(
     }
 
 
-@router.patch(
-    "/admin/applications/{application_id}/status",
-    response_model=ApplicationResponse,
-)
-def update_application_status(
-    application_id: int,
-    admin_id: int,
-    data: StatusUpdate,
-    db: Session = Depends(get_db)
-):
-    admin = db.query(User).filter(
-        User.id == admin_id,
-        User.role == "admin",
-        User.is_active.is_(True)
-    ).first()
-
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active admin not found"
-        )
-
+@router.patch("/admin/applications/{application_id}/status", response_model=ApplicationResponse)
+def update_application_status(application_id: int, data: StatusUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
     application = db.query(Application).join(
         Job,
         Application.job_id == Job.id
     ).filter(
         Application.id == application_id,
         Application.is_active.is_(True),
-        Job.created_by == admin_id
+        Job.created_by == current_user.id
     ).first()
 
     if not application:
