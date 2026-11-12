@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.orm import User, RevokedToken
 from utils.jwt import verify_token
-from test_jwt import payload
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
