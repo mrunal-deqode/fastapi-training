@@ -9,8 +9,9 @@ from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsRespon
                             ApplicationReplace, ApplicationResponse, ApplicationUpdate,
                             CandidateApplicationCreate, StatusUpdate)
 from utils.dependencies import require_roles
+from utils.email_service import send_email
 from utils.module7_dependencies import pagniation
-import time
+# import time
 
 router = APIRouter(
     prefix="/applications",
@@ -336,13 +337,29 @@ def update_application_status(application_id: int, data: StatusUpdate, backgroun
     db.refresh(application)
 
     background_task.add_task(send_application_status_notification,
-                             application.candidate.email, application.job.title, application.status)
+                             application.candidate.email,
+                             application.candidate.full_name, application.job.title, application.status)
 
     return application
 
 
-def send_application_status_notification(candidate_email: str, job_title: str, application_stauts: str):
-    time.sleep(3)
+async def send_application_status_notification(candidate_email: str, candidate_name: str, job_title: str, application_stauts: str):
+    # time.sleep(3)
+    subject = f"Application Update - {job_title}"
 
-    print(
-        f"Notification sent to {candidate_email}, For Application {job_title}, changed status {application_stauts}")
+    body = f"""
+        Hello {candidate_name},
+
+        We have an update regarding your job application.
+
+        Job Title: {job_title}
+        Current Application Status: {application_stauts}
+
+        Please log in to your Recruitment & Hiring account
+        to check your application details.
+
+        Thank you,
+        Recruitment & Hiring Team
+        """
+
+    await send_email(recipient=candidate_email, subject=subject, body=body)

@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,7 +9,7 @@ from routers import applications, jobs, auth, candidates, super_admin, module8_p
 # from models.orm import User
 from middleware import logging_middleware
 from fastapi.middleware.cors import CORSMiddleware
-
+from utils.email_service import send_email
 
 app = FastAPI(title="Recruitment & Hiring")
 
@@ -61,3 +61,10 @@ def db_check(db: Session = Depends(get_db)):
 # @app.get("/candidate-context", tags=["Test Dependency"])
 # def candidate_context(current_user: User = Depends(get_candidate_context)):
 #     return {"message": "Candidate conetxt loaded successfully", "candidate_id": current_user.id, "role": current_user.role}
+
+# @app.post("/test-email")
+# def test_email(bg_task: BackgroundTasks, recipient: str):
+#     bg_task.add_task(send_email, recipient, "Recruitment System - Email Test",
+#                      "Hello! Your Gmail SMTP integration is working successfully.")
+
+#     return {"message": "Email Scheduled successfully"}
