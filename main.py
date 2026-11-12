@@ -5,14 +5,18 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from routers import applications, jobs, auth, candidates, super_admin, module7_practice
-from utils.module7_dependencies import (demo_api_key, Demoapikey, get_candidate_context,
-                                        track_request)
-from models.orm import User
+from routers import applications, jobs, auth, candidates, super_admin, module8_practice
+# from models.orm import User
+from middleware import logging_middleware
+from fastapi.middleware.cors import CORSMiddleware
 
 
-app = FastAPI(title="Recruitment & Hiring",
-              dependencies=[Depends(track_request)])
+app = FastAPI(title="Recruitment & Hiring")
+
+app.add_middleware(CORSMiddleware, allow_origins=[
+                   "http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+app.middleware("http")(logging_middleware)
 
 
 app.include_router(applications.router)
@@ -20,9 +24,10 @@ app.include_router(jobs.router)
 app.include_router(auth.router)
 app.include_router(candidates.router)
 app.include_router(super_admin.router)
-app.include_router(module7_practice.router)
+# app.include_router(module7_practice.router)
+app.include_router(module8_practice.router)
 
-demo_key = Demoapikey(expected_key="demo_key")
+# demo_key = Demoapikey(expected_key="demo_key")
 
 
 @app.get("/")
@@ -43,16 +48,16 @@ def db_check(db: Session = Depends(get_db)):
     return {"database": "Connected"}
 
 
-@app.get("/test-dependency", tags=["Test Dependency"])
-def test_dependency(key: bool = Depends(demo_api_key)):
-    return {"message": "Dependecy executed succesfully", "Key": key}
+# @app.get("/test-dependency", tags=["Test Dependency"])
+# def test_dependency(key: bool = Depends(demo_api_key)):
+#     return {"message": "Dependecy executed succesfully", "Key": key}
 
 
-@app.get("/test-class-dependency", tags=["Test Dependency"])
-def test_class_dependency(key: bool = Depends(demo_key)):
-    return {"message": "Dependecy executed succesfully", "Key": key}
+# @app.get("/test-class-dependency", tags=["Test Dependency"])
+# def test_class_dependency(key: bool = Depends(demo_key)):
+#     return {"message": "Dependecy executed succesfully", "Key": key}
 
 
-@app.get("/candidate-context", tags=["Test Dependency"])
-def candidate_context(current_user: User = Depends(get_candidate_context)):
-    return {"message": "Candidate conetxt loaded successfully", "candidate_id": current_user.id, "role": current_user.role}
+# @app.get("/candidate-context", tags=["Test Dependency"])
+# def candidate_context(current_user: User = Depends(get_candidate_context)):
+#     return {"message": "Candidate conetxt loaded successfully", "candidate_id": current_user.id, "role": current_user.role}

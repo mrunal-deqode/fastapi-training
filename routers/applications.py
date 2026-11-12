@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsRespon
                             CandidateApplicationCreate, StatusUpdate)
 from utils.dependencies import require_roles
 from utils.module7_dependencies import pagniation
+import time
 
 router = APIRouter(
     prefix="/applications",
@@ -88,10 +89,7 @@ def get_my_application(current_user: User = Depends(require_roles("candidate")),
     "/{application_id}",
     response_model=ApplicationResponse,
 )
-def get_application(
-    application_id: int,
-    db: Session = Depends(get_db),
-):
+def get_application(application_id: int, db: Session = Depends(get_db)):
     application = db.query(Application).filter(
         Application.id == application_id,
         Application.is_active == True,
@@ -110,11 +108,7 @@ def get_application(
     "/{application_id}",
     response_model=ApplicationResponse,
 )
-def replace_application(
-    application_id: int,
-    data: ApplicationReplace,
-    db: Session = Depends(get_db),
-):
+def replace_application(application_id: int, data: ApplicationReplace, db: Session = Depends(get_db)):
     application = db.query(Application).filter(
         Application.id == application_id,
         Application.is_active == True,
@@ -202,14 +196,14 @@ def update_application(
 
     if not changes:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUESTS,
             detail="No fields provided for update"
         )
 
     if "years_of_experience" in changes:
         if changes["years_of_experience"] is None:
             raise HTTPException(
-                status_code=422,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Years of experience cannot be null"
             )
 
@@ -320,7 +314,7 @@ def get_admin_applicant_details(application_id: int, current_user: User = Depend
 
 
 @router.patch("/admin/applications/{application_id}/status", response_model=ApplicationResponse)
-def update_application_status(application_id: int, data: StatusUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+def update_application_status(application_id: int, data: StatusUpdate, background_task: BackgroundTasks, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
     application = db.query(Application).join(
         Job,
         Application.job_id == Job.id
@@ -341,4 +335,14 @@ def update_application_status(application_id: int, data: StatusUpdate, current_u
     db.commit()
     db.refresh(application)
 
+    background_task.add_task(send_application_status_notification,
+                             application.candidate.email, application.job.title, application.status)
+
     return application
+
+
+def send_application_status_notification(candidate_email: str, job_title: str, application_stauts: str):
+    time.sleep(3)
+
+    print(
+        f"Notification sent to {candidate_email}, For Application {job_title}, changed status {application_stauts}")
