@@ -7,6 +7,7 @@ from database import get_db
 from models.orm import Job, User
 from utils.security import hash_password
 from utils.dependencies import require_roles
+from utils.module7_dependencies import Pagination
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
 
@@ -97,8 +98,9 @@ def reacticate_admin(admin_id: int, super_admin: User = Depends(require_roles("s
 
 
 @router.get("/get-candidates", response_model=list[CandidateResponse])
-def get_all_candidates(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
-    user_details = db.query(User).filter(User.role == "candidate").all()
+def get_all_candidates(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db), pagination_data: Pagination = Depends(Pagination)):
+    user_details = db.query(User).filter(User.role == "candidate").offset(
+        pagination_data.skip).limit(pagination_data.limit).all()
 
     return user_details
 

@@ -29,7 +29,7 @@ def seed_admins():
             ).first()
 
             if existing_user:
-                print(f"Already exists: {admin['email']}")
+                # print(f"Already exists: {admin['email']}")
                 continue
 
             new_admin = User(
@@ -42,7 +42,7 @@ def seed_admins():
             )
 
             db.add(new_admin)
-            print(f"Created admin: {admin['email']}")
+            # print(f"Created admin: {admin['email']}")
 
         db.commit()
 

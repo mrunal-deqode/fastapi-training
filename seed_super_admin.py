@@ -14,7 +14,7 @@ def seed_super_admin():
         ).first()
 
         if existing_user:
-            print("Super Admin already exists.")
+            #print("Super Admin already exists.")
             return
 
         super_admin = User(
@@ -29,7 +29,7 @@ def seed_super_admin():
         db.add(super_admin)
         db.commit()
 
-        print("Super Admin created successfully.")
+        #print("Super Admin created successfully.")
 
     except Exception:
         db.rollback()

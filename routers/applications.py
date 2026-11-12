@@ -9,6 +9,7 @@ from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsRespon
                             ApplicationReplace, ApplicationResponse, ApplicationUpdate,
                             CandidateApplicationCreate, StatusUpdate)
 from utils.dependencies import require_roles
+from utils.module7_dependencies import pagniation
 
 router = APIRouter(
     prefix="/applications",
@@ -73,12 +74,12 @@ def get_applications(current_user: User = Depends(require_roles("super_admin")),
 
 
 @router.get("/my-applications", response_model=list[ApplicationResponse])
-def get_my_application(current_user: User = Depends(require_roles("candidate")), db: Session = Depends(get_db)):
+def get_my_application(current_user: User = Depends(require_roles("candidate")), db: Session = Depends(get_db), pagination_data: dict = Depends(pagniation)):
 
     application = db.query(Application).filter(
         Application.candidate_id == current_user.id,
         Application.is_active.is_(True)
-    ).all()
+    ).offset(pagination_data["skip"]).limit(pagination_data["limit"]).all()
 
     return application
 

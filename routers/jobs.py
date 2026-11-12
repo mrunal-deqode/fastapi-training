@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.orm import Job, User
 from utils.dependencies import require_roles
+from utils.module7_dependencies import pagniation
 
 router = APIRouter(
     prefix="/jobs",
@@ -14,7 +15,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[JobResponse])
-def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_length=30), db: Session = Depends(get_db)):
+def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_length=30), db: Session = Depends(get_db), pagination_data: dict = Depends(pagniation)):
     query = db.query(Job).filter(
         Job.is_active.is_(True),
         Job.status == "open"
@@ -23,7 +24,7 @@ def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_lengt
     if job_type:
         query = query.filter(Job.job_type.ilike(job_type))
 
-    return query.all()
+    return query.offset(pagination_data["skip"]).limit(pagination_data["limit"]).all()
 
 
 @router.get("/manage", response_model=list[JobResponse])

@@ -254,20 +254,20 @@ try:
 
     db.commit()
 
-    print("\nDevelopment seed completed successfully!")
-    print("Recruiter ID:", recruiter.id)
+    # print("\nDevelopment seed completed successfully!")
+    # print("Recruiter ID:", recruiter.id)
 
-    print("\nCandidates:")
-    for email, candidate in candidates.items():
-        print(email, "-> ID:", candidate.id)
+    # print("\nCandidates:")
+    # for email, candidate in candidates.items():
+    # print(email, "-> ID:", candidate.id)
 
-    print("\nJobs:")
-    for title, job in jobs.items():
-        print(title, "-> ID:", job.id)
+    # print("\nJobs:")
+    # for title, job in jobs.items():
+    # print(title, "-> ID:", job.id)
 
-    print("\nTotal candidates:", len(candidates))
-    print("Total jobs:", len(jobs))
-    print("Application seed entries:", len(applications_data))
+    # print("\nTotal candidates:", len(candidates))
+    # print("Total jobs:", len(jobs))
+    # print("Application seed entries:", len(applications_data))
 
 except Exception:
     db.rollback()
