@@ -1,8 +1,8 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
-from test_security import password
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+# from test_security import password
 
 ApplicationStatus = Literal[
     "Applied",
@@ -87,9 +87,7 @@ class JobResponse(BaseModel):
 
 class CandidateRegister(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)
-    email: str = Field(
-        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255
-    )
+    email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=6, max_length=100)
     phone: str | None = Field(default=None, pattern=r"^[0-9]{10}$")
 
@@ -99,14 +97,14 @@ class CandidateResponse(BaseModel):
 
     id: int
     full_name: str | None
-    email: str
+    email: EmailStr
     phone: str | None
     role: str
     is_active: bool
 
 
 class CandidateLogin(BaseModel):
-    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
+    email: EmailStr = Field(max_length=255)
     password: str
 
 
@@ -144,7 +142,7 @@ class ApplicantDetailsResponse(BaseModel):
     application_id: int
     candidate_id: int
     candidate_name: str | None
-    candidate_email: str
+    candidate_email: EmailStr
     candidate_phone: str | None
     years_of_experience: float
     cover_letter: str | None
@@ -158,7 +156,7 @@ class AdminApplicantDetailResponse(BaseModel):
     job_id: int
     candidate_id: int
     candidate_name: str | None
-    candidate_email: str
+    candidate_email: EmailStr
     candidate_phone: str | None
 
     years_of_experience: float
@@ -173,7 +171,7 @@ class AdminApplicantDetailResponse(BaseModel):
 
 class AdminCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)
-    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8)
     phone: str | None = Field(default=None, pattern=r"^\d{10}$")
 
@@ -183,7 +181,7 @@ class AdminCreateResopnse(BaseModel):
 
     id: int
     full_name: str | None
-    email: str
+    email: EmailStr
     phone: str | None
     role: str
     is_active: bool
