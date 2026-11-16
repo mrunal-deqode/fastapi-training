@@ -12,7 +12,7 @@ from utils.dependencies import require_roles
 from utils.email_service import send_email
 from utils.module7_dependencies import pagniation
 # import time
-
+from tasks import send_application_status_email
 router = APIRouter(
     prefix="/applications",
     tags=["Applications"],
@@ -315,7 +315,7 @@ def get_admin_applicant_details(application_id: int, current_user: User = Depend
 
 
 @router.patch("/admin/applications/{application_id}/status", response_model=ApplicationResponse)
-def update_application_status(application_id: int, data: StatusUpdate, background_task: BackgroundTasks, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+def update_application_status(application_id: int, data: StatusUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
     application = db.query(Application).join(
         Job,
         Application.job_id == Job.id
@@ -336,30 +336,33 @@ def update_application_status(application_id: int, data: StatusUpdate, backgroun
     db.commit()
     db.refresh(application)
 
-    background_task.add_task(send_application_status_notification,
-                             application.candidate.email,
-                             application.candidate.full_name, application.job.title, application.status)
+    send_application_status_email.delay(
+        application.candidate.email,
+        application.candidate.full_name,
+        application.job.title,
+        application.status
+    )
 
     return application
 
 
-async def send_application_status_notification(candidate_email: str, candidate_name: str, job_title: str, application_stauts: str):
-    # time.sleep(3)
-    subject = f"Application Update - {job_title}"
+# async def send_application_status_notification(candidate_email: str, candidate_name: str, job_title: str, application_stauts: str):
+#     # time.sleep(3)
+#     subject = f"Application Update - {job_title}"
 
-    body = f"""
-        Hello {candidate_name},
+#     body = f"""
+#         Hello {candidate_name},
 
-        We have an update regarding your job application.
+#         We have an update regarding your job application.
 
-        Job Title: {job_title}
-        Current Application Status: {application_stauts}
+#         Job Title: {job_title}
+#         Current Application Status: {application_stauts}
 
-        Please log in to your Recruitment & Hiring account
-        to check your application details.
+#         Please log in to your Recruitment & Hiring account
+#         to check your application details.
 
-        Thank you,
-        Recruitment & Hiring Team
-        """
+#         Thank you,
+#         Recruitment & Hiring Team
+#         """
 
-    await send_email(recipient=candidate_email, subject=subject, body=body)
+#     await send_email(recipient=candidate_email, subject=subject, body=body)

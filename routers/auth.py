@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from models.schemas import CandidateRegister, CandidateResponse, RefreshTokenRequest, TokenResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -12,7 +12,7 @@ from utils.dependencies import get_current_user, oauth2_scheme
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError
 
-
+from redis_client import redis_client
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
@@ -41,12 +41,30 @@ def register_candidate(data: CandidateRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
+
+        client_ip = request.client.host
+        key = f"rate_limit:login:{client_ip}"
+
+        attempts = redis_client.incr(key)
+
+        if attempts == 1:
+            redis_client.expire(key, 60)
+
+        if attempts >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Please try again after 60 seconds.")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Email or Password")
+
+    client_ip = request.client.host
+    key = f"rate_limit:login:{client_ip}"
+
+    redis_client.delete(key)
 
     if not user.is_active:
         raise HTTPException(
