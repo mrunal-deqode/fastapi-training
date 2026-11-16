@@ -7,6 +7,9 @@ from database import get_db
 from models.orm import Job, User
 from utils.dependencies import require_roles
 from utils.module7_dependencies import pagniation
+from redis_client import clear_job_cache, redis_client
+
+import json
 
 router = APIRouter(
     prefix="/jobs",
@@ -16,6 +19,16 @@ router = APIRouter(
 
 @router.get("", response_model=list[JobResponse])
 def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_length=30), db: Session = Depends(get_db), pagination_data: dict = Depends(pagniation)):
+    skip = pagination_data["skip"]
+    limit = pagination_data["limit"]
+
+    cache_key = f"jobs:list:{job_type or 'all'}:{skip}:{limit}"
+
+    cached_jobs = redis_client.get(cache_key)
+
+    if cached_jobs:
+        return json.loads(cached_jobs)
+
     query = db.query(Job).filter(
         Job.is_active.is_(True),
         Job.status == "open"
@@ -24,7 +37,14 @@ def list_jobs(job_type: str | None = Query(default=None, min_length=2, max_lengt
     if job_type:
         query = query.filter(Job.job_type.ilike(job_type))
 
-    return query.offset(pagination_data["skip"]).limit(pagination_data["limit"]).all()
+    jobs = query.offset(skip).limit(limit).all()
+
+    jobs_data = [JobResponse.model_validate(
+        job).model_dump(mode="json") for job in jobs]
+
+    redis_client.setex(cache_key, 60, json.dumps(jobs_data))
+
+    return jobs_data
 
 
 @router.get("/manage", response_model=list[JobResponse])
@@ -73,6 +93,8 @@ def create_job(job_data: JobCreate, current_user: User = Depends(require_roles("
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
+
+    clear_job_cache()
 
     return new_job
 
