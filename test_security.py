@@ -1,5 +1,5 @@
 
-from utils.security import hash_password, verify_password
+from utils.security import hash_password
 
 password = "Test@12345"
 

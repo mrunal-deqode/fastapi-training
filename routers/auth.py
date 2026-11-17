@@ -1,18 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from models.schemas import CandidateRegister, CandidateResponse, RefreshTokenRequest, TokenResponse
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
 from database import get_db
 from models.orm import RevokedToken, User
+from models.schemas import (
+    CandidateRegister,
+    CandidateResponse,
+    RefreshTokenRequest,
+    TokenResponse,
+)
+from redis_client import redis_client
+from utils.dependencies import get_current_user, oauth2_scheme
+from utils.jwt import create_access_token, create_refresh_token, verify_token
 from utils.security import hash_password, verify_password
 
-from fastapi.security import OAuth2PasswordRequestForm
-from utils.jwt import create_access_token, create_refresh_token, verify_token
-from utils.dependencies import get_current_user, oauth2_scheme
-
-from datetime import datetime, timezone
-from sqlalchemy.exc import IntegrityError
-
-from redis_client import redis_client
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 

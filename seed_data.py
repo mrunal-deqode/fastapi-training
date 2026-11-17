@@ -2,8 +2,7 @@
 from datetime import date, timedelta
 
 from database import SessionLocal
-from models.orm import User, CandidateProfile, Job, Application
-
+from models.orm import Application, CandidateProfile, Job, User
 
 db = SessionLocal()
 

@@ -1,4 +1,5 @@
 import asyncio
+
 from celery_app import celery_app
 from utils.email_service import send_email
 

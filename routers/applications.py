@@ -1,18 +1,25 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.orm import Application, User, Job
-from models.schemas import (AdminApplicantDetailResponse, ApplicantDetailsResponse,
-                            ApplicationReplace, ApplicationResponse, ApplicationUpdate,
-                            CandidateApplicationCreate, StatusUpdate)
-from utils.dependencies import require_roles
-from utils.email_service import send_email
-from utils.module7_dependencies import pagniation
+from models.orm import Application, Job, User
+from models.schemas import (
+    AdminApplicantDetailResponse,
+    ApplicantDetailsResponse,
+    ApplicationReplace,
+    ApplicationResponse,
+    ApplicationUpdate,
+    CandidateApplicationCreate,
+    StatusUpdate,
+)
+
 # import time
 from tasks import send_application_status_email
+from utils.dependencies import require_roles
+from utils.module7_dependencies import pagniation
+
 router = APIRouter(
     prefix="/applications",
     tags=["Applications"],
@@ -23,7 +30,7 @@ router = APIRouter(
 def create_application(data: CandidateApplicationCreate, current_user: User = Depends(require_roles("candidate")), db: Session = Depends(get_db)):
     job = db.query(Job).filter(
         Job.id == data.job_id,
-        Job.is_active == True,
+        Job.is_active.is_(True),
         Job.status == "open",
     ).first()
 
@@ -69,7 +76,7 @@ def create_application(data: CandidateApplicationCreate, current_user: User = De
 @router.get("", response_model=list[ApplicationResponse])
 def get_applications(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
     applications = db.query(Application).filter(
-        Application.is_active == True
+        Application.is_active.is_(True)
     ).all()
 
     return applications
@@ -93,7 +100,7 @@ def get_my_application(current_user: User = Depends(require_roles("candidate")),
 def get_application(application_id: int, db: Session = Depends(get_db)):
     application = db.query(Application).filter(
         Application.id == application_id,
-        Application.is_active == True,
+        Application.is_active.is_(True),
     ).first()
 
     if not application:
@@ -112,7 +119,7 @@ def get_application(application_id: int, db: Session = Depends(get_db)):
 def replace_application(application_id: int, data: ApplicationReplace, db: Session = Depends(get_db)):
     application = db.query(Application).filter(
         Application.id == application_id,
-        Application.is_active == True,
+        Application.is_active.is_(True),
     ).first()
 
     if not application:
@@ -124,7 +131,7 @@ def replace_application(application_id: int, data: ApplicationReplace, db: Sessi
     candidate = db.query(User).filter(
         User.id == data.candidate_id,
         User.role == "candidate",
-        User.is_active == True,
+        User.is_active.is_(True),
     ).first()
 
     if not candidate:
@@ -135,7 +142,7 @@ def replace_application(application_id: int, data: ApplicationReplace, db: Sessi
 
     job = db.query(Job).filter(
         Job.id == data.job_id,
-        Job.is_active == True,
+        Job.is_active.is_(True),
         Job.status == "open",
     ).first()
 
@@ -184,7 +191,7 @@ def update_application(
 ):
     application = db.query(Application).filter(
         Application.id == application_id,
-        Application.is_active == True
+        Application.is_active.is_(True)
     ).first()
 
     if not application:
@@ -226,7 +233,7 @@ def delete_application(
 ):
     application = db.query(Application).filter(
         Application.id == application_id,
-        Application.is_active == True
+        Application.is_active.is_(True)
     ).first()
 
     if not application:

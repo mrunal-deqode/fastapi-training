@@ -1,7 +1,8 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
 # from test_security import password
 
 ApplicationStatus = Literal[

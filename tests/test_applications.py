@@ -1,7 +1,6 @@
 
-from models.orm import User
+from models.orm import Job, User
 from utils.security import hash_password
-from models.orm import User, Job
 
 
 def create_admin_token(client, db_session):

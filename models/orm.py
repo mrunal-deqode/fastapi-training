@@ -11,7 +11,6 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     text,
-    Float
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

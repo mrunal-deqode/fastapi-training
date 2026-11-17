@@ -2,7 +2,6 @@ from database import SessionLocal
 from models.orm import User
 from utils.security import hash_password
 
-
 admins = [
     {
         "full_name": "Rahul Sharma",

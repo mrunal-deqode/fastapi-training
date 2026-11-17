@@ -1,17 +1,15 @@
 
 import os
-import pytest
 
+import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
-from main import app
 from database import Base, get_db
-import models.orm
-
+from main import app
 
 load_dotenv()
 
@@ -77,9 +75,9 @@ def client(db_session):
             app.dependency_overrides[get_db] = previous_override
 
 
-@pytest.fixture(scope="session", autouse=True)
-def create_test_tables():
-    Base.metadata.create_all(bind=test_engine)
-    yield
-    Base.metadata.drop_all(bind=test_engine)
-    test_engine.dispose()
+# @pytest.fixture(scope="session", autouse=True)
+# def create_test_tables():
+#     Base.metadata.create_all(bind=test_engine)
+#     yield
+#     Base.metadata.drop_all(bind=test_engine)
+#     test_engine.dispose()
