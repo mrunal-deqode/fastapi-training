@@ -1,15 +1,15 @@
 
-from fastapi import APIRouter, HTTPException, Header, Response, status, Query, Depends
+import json
 
-from models.schemas import JobCreate, JobResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
+
 from database import get_db
 from models.orm import Job, User
+from models.schemas import JobCreate, JobResponse
+from redis_client import clear_job_cache, redis_client
 from utils.dependencies import require_roles
 from utils.module7_dependencies import pagniation
-from redis_client import clear_job_cache, redis_client
-
-import json
 
 router = APIRouter(
     prefix="/jobs",

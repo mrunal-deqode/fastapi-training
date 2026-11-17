@@ -1,8 +1,13 @@
-from fastapi import APIRouter, status, Depends, HTTPException
-from models.schemas import CandidateProfileCreate, CandidateProfileResponse, CandidateProfileUpdate
-from database import get_db
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from database import get_db
 from models.orm import CandidateProfile, User
+from models.schemas import (
+    CandidateProfileCreate,
+    CandidateProfileResponse,
+    CandidateProfileUpdate,
+)
 from utils.dependencies import require_roles
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])

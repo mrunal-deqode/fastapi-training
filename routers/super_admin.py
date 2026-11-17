@@ -1,13 +1,20 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.schemas import (AdminCreate, AdminCreateResopnse, CandidateResponse, JobCreate,
-                            JobResponse, JobStatusUpdate)
 from sqlalchemy.orm import Session
+
 from database import get_db
 from models.orm import Job, User
-from utils.security import hash_password
+from models.schemas import (
+    AdminCreate,
+    AdminCreateResopnse,
+    CandidateResponse,
+    JobCreate,
+    JobResponse,
+    JobStatusUpdate,
+)
 from utils.dependencies import require_roles
 from utils.module7_dependencies import Pagination
+from utils.security import hash_password
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
 

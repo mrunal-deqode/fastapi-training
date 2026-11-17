@@ -1,15 +1,15 @@
 
-from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from routers import applications, jobs, auth, candidates, super_admin, module8_practice
+
 # from models.orm import User
 from middleware import logging_middleware
-from fastapi.middleware.cors import CORSMiddleware
-from utils.email_service import send_email
+from routers import applications, auth, candidates, jobs, module8_practice, super_admin
 
 app = FastAPI(title="Recruitment & Hiring")
 
@@ -68,3 +68,7 @@ def db_check(db: Session = Depends(get_db)):
 #                      "Hello! Your Gmail SMTP integration is working successfully.")
 
 #     return {"message": "Email Scheduled successfully"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}

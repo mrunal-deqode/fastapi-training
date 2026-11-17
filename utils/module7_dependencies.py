@@ -1,7 +1,7 @@
-from fastapi import Header, HTTPException, status, Query, Depends, Request
+from fastapi import Depends, HTTPException, Query, status
+
 from models.orm import User
 from utils.dependencies import get_current_user
-
 
 # def demo_api_key(demo_api_key: str | None = Header(default=None)):
 #     if demo_api_key != "demo-key":

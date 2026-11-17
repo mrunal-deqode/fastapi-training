@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+
 from utils.module7_dependencies import demo_api_key
 
 router = APIRouter(prefix="/module7/practice",

@@ -1,4 +1,3 @@
-from models.orm import CandidateProfile
 
 
 def create_candidate_token(client):

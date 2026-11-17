@@ -1,14 +1,30 @@
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
+class Settings(BaseSettings):
+    DATABASE_URL: str
+    TEST_DATABASE_URL: str | None = None
 
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
 
-if not JWT_SECRET_KEY:
-    raise ValueError("JWT_SECRET_KEY is missing from environment variables")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    SMTP_EMAIL: str
+    SMTP_PASSWORD: str
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
+
+
+settings = Settings()
