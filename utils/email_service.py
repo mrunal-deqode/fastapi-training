@@ -1,11 +1,10 @@
+
 import logging
-import os
 from email.message import EmailMessage
 
 from aiosmtplib import send
-from dotenv import load_dotenv
 
-load_dotenv()
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -13,16 +12,22 @@ logger = logging.getLogger(__name__)
 async def send_email(recipient: str, subject: str, body: str):
     message = EmailMessage()
 
-    message["From"] = os.getenv("SMTP_EMAIL")
+    message["From"] = settings.SMTP_EMAIL
     message["To"] = recipient
     message["Subject"] = subject
     message.set_content(body)
 
     try:
-        await send(message, hostname=os.getenv("SMTP_SERVER"), port=int(os.getenv("SMTP_PORT", "587")), start_tls=True, username=os.getenv("SMTP_EMAIL"), password=os.getenv("SMTP_PASSWORD"))
+        await send(
+            message,
+            hostname=settings.SMTP_SERVER,
+            port=settings.SMTP_PORT,
+            start_tls=True,
+            username=settings.SMTP_EMAIL,
+            password=settings.SMTP_PASSWORD,
+        )
 
-        logger.info("Email Successfully sent to %s", recipient)
-        print(f"Email Successfully sent to {recipient}")
+        logger.info("Email successfully sent to %s", recipient)
 
     except Exception:
-        logger.exception("Fail to send Email")
+        logger.exception("Failed to send email to %s", recipient)
