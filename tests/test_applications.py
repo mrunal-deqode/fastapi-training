@@ -16,7 +16,7 @@ def create_admin_token(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": "admin_test@example.com",
             "password": "adminpass123"
@@ -26,6 +26,7 @@ def create_admin_token(client, db_session):
     assert response.status_code == 200
     return response.json()["access_token"]
 
+
 def create_candidate_token(client):
     payload = {
         "full_name": "Test Applicant",
@@ -33,11 +34,11 @@ def create_candidate_token(client):
         "password": "password123"
     }
 
-    register_response = client.post("/auth/register", json=payload)
+    register_response = client.post("/api/v1/auth/register", json=payload)
     assert register_response.status_code == 201
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -47,9 +48,10 @@ def create_candidate_token(client):
     assert login_response.status_code == 200
     return login_response.json()["access_token"]
 
+
 def create_test_job(client, admin_token):
     response = client.post(
-        "/jobs",
+        "/api/v1/jobs",
         json={
             "title": "Python Developer",
             "description": "Looking for a Python developer.",
@@ -73,7 +75,7 @@ def test_candidate_apply_success(client, db_session):
     job_id = create_test_job(client, admin_token)
 
     response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json={
             "job_id": job_id,
             "years_of_experience": 2,
@@ -106,13 +108,13 @@ def test_duplicate_application_rejected(client, db_session):
     }
 
     first_response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json=payload,
         headers=headers
     )
 
     second_response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json=payload,
         headers=headers
     )
@@ -128,7 +130,7 @@ def test_application_for_nonexistent_job(client):
     candidate_token = create_candidate_token(client)
 
     response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json={
             "job_id": 999999,
             "years_of_experience": 1,
@@ -153,7 +155,7 @@ def test_application_to_closed_job_rejected(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json={
             "job_id": job_id,
             "years_of_experience": 2,
@@ -178,7 +180,7 @@ def test_application_to_inactive_job_rejected(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/applications",
+        "/api/v1/applications",
         json={
             "job_id": job_id,
             "years_of_experience": 2,
@@ -197,18 +199,19 @@ def test_list_open_jobs(client, db_session):
     admin_token = create_admin_token(client, db_session)
     create_test_job(client, admin_token)
 
-    response = client.get("/jobs")
+    response = client.get("/api/v1/jobs")
 
     assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0]["title"] == "Python Developer"
+    assert response.json()["total"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["title"] == "Python Developer"
 
 
 def test_get_job_details(client, db_session):
     admin_token = create_admin_token(client, db_session)
     job_id = create_test_job(client, admin_token)
 
-    response = client.get(f"/jobs/{job_id}")
+    response = client.get(f"/api/v1/jobs/{job_id}")
 
     assert response.status_code == 200
     assert response.json()["id"] == job_id
@@ -223,7 +226,7 @@ def test_get_closed_job_not_found(client, db_session):
     job.status = "closed"
     db_session.commit()
 
-    response = client.get(f"/jobs/{job_id}")
+    response = client.get(f"/api/v1/jobs/{job_id}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found"
@@ -235,7 +238,7 @@ def test_candidate_get_my_applications(client, db_session):
     job_id = create_test_job(client, admin_token)
 
     client.post(
-        "/applications",
+        "/api/v1/applications",
         json={
             "job_id": job_id,
             "years_of_experience": 2,
@@ -247,18 +250,19 @@ def test_candidate_get_my_applications(client, db_session):
     )
 
     response = client.get(
-        "/applications/my-applications",
+        "/api/v1/applications/my-applications",
         headers={
             "Authorization": f"Bearer {candidate_token}"
         }
     )
 
     assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0]["job_id"] == job_id
+    assert response.json()["total"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["job_id"] == job_id
 
 
 def test_candidate_get_my_applications_unauthorized(client):
-    response = client.get("/applications/my-applications")
+    response = client.get("/api/v1/applications/my-applications")
 
     assert response.status_code == 401
