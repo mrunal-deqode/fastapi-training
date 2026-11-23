@@ -21,7 +21,45 @@ from utils.security import hash_password, verify_password
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=CandidateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new candidate",
+    description=(
+        "Creates a new candidate account using the supplied personal details. "
+        "The password is securely hashed before storage. "
+        "Email addresses must be unique."
+    ),
+    responses={
+        201: {
+            "description": "Candidate account created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": 10,
+                        "full_name": "Rahul Sharma",
+                        "email": "rahul@example.com",
+                        "phone": "9876543210",
+                        "role": "candidate",
+                        "is_active": True
+                    }
+                }
+            }
+        },
+        409: {
+            "description": "Email is already registered",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Email is already registered."
+                    }
+                }
+            }
+        },
+        422: {"description": "Invalid registration data"}
+    }
+)
 def register_candidate(data: CandidateRegister, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == data.email).first()
 
@@ -45,7 +83,44 @@ def register_candidate(data: CandidateRegister, db: Session = Depends(get_db)):
     return new_candidate
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Authenticate a user and generate tokens",
+    description=(
+        "Authenticates a user using email and password submitted as OAuth2 form data. "
+        "Returns access and refresh JWT tokens after successful authentication. "
+        "Login attempts are rate-limited by client IP. Five failed attempts "
+        "trigger a temporary 60-second restriction."
+    ),
+    responses={
+        200: {
+            "description": "Authentication successful",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "example.access.token",
+                        "refresh_token": "example.refresh.token",
+                        "token_type": "bearer",
+                        "role": "candidate"
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Invalid email or password"
+        },
+        403: {
+            "description": "User account is inactive"
+        },
+        429: {
+            "description": "Too many login attempts"
+        },
+        422: {
+            "description": "Invalid login form data"
+        }
+    }
+)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
 
@@ -91,13 +166,75 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     }
 
 
-@router.get("/me", response_model=CandidateResponse)
+@router.get(
+    "/me",
+    response_model=CandidateResponse,
+    summary="Get current user profile",
+    description=(
+        "Returns the profile of the currently authenticated user. "
+        "Requires a valid access token in the Authorization header."
+    ),
+    responses={
+        200: {
+            "description": "Current user profile retrieved",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": 10,
+                        "full_name": "Rahul Sharma",
+                        "email": "rahul@example.com",
+                        "phone": "9876543210",
+                        "role": "candidate",
+                        "is_active": True
+                    }
+                }
+            }
+        },
+        401: {"description": "Missing or invalid access token"},
+        403: {"description": "Access forbidden"}
+    }
+)
 def get_my_account(current_user: User = Depends(get_current_user)):
     # print("current_user is :- ", current_user)
     return current_user
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Refresh authentication tokens",
+    description=(
+        "Accepts a valid refresh token and issues a new access token "
+        "and refresh token. The previous refresh token is revoked to "
+        "prevent reuse. Revoked, expired, or invalid tokens are rejected."
+    ),
+    responses={
+        200: {
+            "description": "New authentication tokens generated",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "new.access.token",
+                        "refresh_token": "new.refresh.token",
+                        "token_type": "bearer",
+                        "role": "candidate"
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Invalid, expired, or revoked refresh token",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Invalid or revoked refresh token"
+                    }
+                }
+            }
+        },
+        422: {"description": "Invalid refresh token request"}
+    }
+)
 def refresh_access_token(
     data: RefreshTokenRequest,
     db: Session = Depends(get_db)
@@ -162,7 +299,33 @@ def refresh_access_token(
     }
 
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    summary="Logout the authenticated user",
+    description=(
+        "Logs out the currently authenticated user by revoking both "
+        "the access token and refresh token. Requires a valid access "
+        "token in the Authorization header and a refresh token in the request body."
+    ),
+    responses={
+        200: {
+            "description": "User logged out successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Logged out successfully"
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Invalid, expired, or already revoked token"
+        },
+        422: {
+            "description": "Invalid refresh token request"
+        }
+    }
+)
 def logout(
     data: RefreshTokenRequest,
     access_token: str = Depends(oauth2_scheme),

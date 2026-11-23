@@ -41,3 +41,14 @@ class Pagination:
 
 # def track_request(request: Request):
 #     return (f"Request received: {request.method} {request.url.path}")
+
+
+class PagePagination:
+    def __init__(
+        self,
+        page: int = Query(default=1, ge=1),
+        limit: int = Query(default=10, ge=1, le=100),
+    ):
+        self.page = page
+        self.limit = limit
+        self.skip = (page - 1) * limit

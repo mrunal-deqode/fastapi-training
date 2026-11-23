@@ -2,10 +2,12 @@
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -137,4 +139,28 @@ class RevokedToken(Base):
     revoked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+
+
+class IdempotencyRecord(Base):
+    __tablename__ = "idempotency_records"
+    __table_args__ = (
+        UniqueConstraint("candidate_id", "idempotency_key"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    candidate_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id")
+    )
+
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+    request_hash: Mapped[str] = mapped_column(String(64))
+
+    response_body: Mapped[dict | None] = mapped_column(JSON)
+    response_status_code: Mapped[int | None] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
     )

@@ -8,6 +8,7 @@ from config import settings
 # import os
 # from dotenv import load_dotenv
 from database import Base
+from models import orm  # noqa: F401
 
 # load_dotenv()
 
