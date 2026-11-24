@@ -21,7 +21,7 @@ from models.schemas import (
 
 # import time
 from tasks import send_application_status_email
-from utils.dependencies import require_roles
+from utils.dependencies import get_authorized_application, require_roles
 from utils.module7_dependencies import PagePagination
 
 router = APIRouter(
@@ -263,18 +263,9 @@ def get_my_application(
         422: {"description": "Invalid application ID"}
     }
 )
-def get_application(application_id: int, db: Session = Depends(get_db)):
-    application = db.query(Application).filter(
-        Application.id == application_id,
-        Application.is_active.is_(True),
-    ).first()
-
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found",
-        )
-
+def get_application(
+    application: Application = Depends(get_authorized_application),
+):
     return application
 
 
@@ -311,56 +302,11 @@ def get_application(application_id: int, db: Session = Depends(get_db)):
         422: {"description": "Invalid replacement data"}
     }
 )
-def replace_application(application_id: int, data: ApplicationReplace, db: Session = Depends(get_db)):
-    application = db.query(Application).filter(
-        Application.id == application_id,
-        Application.is_active.is_(True),
-    ).first()
-
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found",
-        )
-
-    candidate = db.query(User).filter(
-        User.id == data.candidate_id,
-        User.role == "candidate",
-        User.is_active.is_(True),
-    ).first()
-
-    if not candidate:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active candidate not found",
-        )
-
-    job = db.query(Job).filter(
-        Job.id == data.job_id,
-        Job.is_active.is_(True),
-        Job.status == "open",
-    ).first()
-
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Active open job not found",
-        )
-
-    existing_application = db.query(Application).filter(
-        Application.candidate_id == data.candidate_id,
-        Application.job_id == data.job_id,
-        Application.id != application_id,
-    ).first()
-
-    if existing_application:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Candidate has already applied for this job",
-        )
-
-    application.candidate_id = data.candidate_id
-    application.job_id = data.job_id
+def replace_application(
+    data: ApplicationReplace,
+    application: Application = Depends(get_authorized_application),
+    db: Session = Depends(get_db),
+):
     application.years_of_experience = data.years_of_experience
     application.cover_letter = data.cover_letter
 
@@ -411,34 +357,23 @@ def replace_application(application_id: int, data: ApplicationReplace, db: Sessi
     }
 )
 def update_application(
-    application_id: int,
     data: ApplicationUpdate,
-    db: Session = Depends(get_db)
+    application: Application = Depends(get_authorized_application),
+    db: Session = Depends(get_db),
 ):
-    application = db.query(Application).filter(
-        Application.id == application_id,
-        Application.is_active.is_(True)
-    ).first()
-
-    if not application:
-        raise HTTPException(
-            status_code=404,
-            detail="Application not found"
-        )
-
     changes = data.model_dump(exclude_unset=True)
 
     if not changes:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUESTS,
-            detail="No fields provided for update"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided for update",
         )
 
     if "years_of_experience" in changes:
         if changes["years_of_experience"] is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Years of experience cannot be null"
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Years of experience cannot be null",
             )
 
         application.years_of_experience = changes["years_of_experience"]
@@ -471,20 +406,9 @@ def update_application(
     }
 )
 def delete_application(
-    application_id: int,
-    db: Session = Depends(get_db)
+    application: Application = Depends(get_authorized_application),
+    db: Session = Depends(get_db),
 ):
-    application = db.query(Application).filter(
-        Application.id == application_id,
-        Application.is_active.is_(True)
-    ).first()
-
-    if not application:
-        raise HTTPException(
-            status_code=404,
-            detail="Application not found"
-        )
-
     application.is_active = False
 
     db.commit()

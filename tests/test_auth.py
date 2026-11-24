@@ -358,3 +358,16 @@ def test_logout_revokes_access_token(client):
     )
 
     assert account_response.status_code == 401
+
+
+def test_candidate_cannot_register_as_admin(client):
+    payload = {
+        "full_name": "Malicious Candidate",
+        "email": "malicious@example.com",
+        "password": "password123",
+        "role": "admin",
+    }
+
+    response = client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 422

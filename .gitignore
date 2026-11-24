@@ -9,3 +9,4 @@ demo.txt
 !.env.example
 scripts/reset_demo_password.py
 scripts/create_super_admin.py
+seed_data.py

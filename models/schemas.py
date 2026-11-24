@@ -32,6 +32,7 @@ class ApplicationCreate(BaseModel):
 
 class CandidateApplicationCreate(BaseModel):
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "examples": [
                 {
@@ -61,6 +62,7 @@ class ApplicationResponse(BaseModel):
 
 
 class ApplicationUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     years_of_experience: float | None = Field(
         default=None, ge=0
     )
@@ -68,8 +70,8 @@ class ApplicationUpdate(BaseModel):
 
 
 class ApplicationReplace(BaseModel):
-    candidate_id: int = Field(gt=0)
-    job_id: int = Field(gt=0)
+    model_config = ConfigDict(extra="forbid")
+
     years_of_experience: float = Field(ge=0)
     cover_letter: str | None = None
 
@@ -80,6 +82,7 @@ class StatusUpdate(BaseModel):
 
 class JobCreate(BaseModel):
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "examples": [
                 {
@@ -125,6 +128,7 @@ class JobResponse(BaseModel):
 
 
 class CandidateRegister(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     full_name: str = Field(min_length=2, max_length=100)
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=6, max_length=100)
@@ -143,11 +147,13 @@ class CandidateResponse(BaseModel):
 
 
 class CandidateLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: EmailStr = Field(max_length=255)
     password: str
 
 
 class CandidateProfileCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     address: str | None = Field(default=None, max_length=255)
     education: str | None = None
     experience: str | None = None
@@ -168,6 +174,7 @@ class CandidateProfileResponse(BaseModel):
 
 
 class CandidateProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     address: str | None = Field(default=None, max_length=255)
     education: str | None = None
     experience: str | None = None
@@ -209,6 +216,7 @@ class AdminApplicantDetailResponse(BaseModel):
 
 
 class AdminCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     full_name: str = Field(min_length=2, max_length=100)
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8)
@@ -238,6 +246,7 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     refresh_token: str
 
 
