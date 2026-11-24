@@ -18,7 +18,12 @@ class RequestIdFilter(logging.Filter):
 
 
 async def logging_middleware(request: Request, call_next):
-    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    incoming_request_id = request.headers.get("X-Request-ID")
+
+    if incoming_request_id and len(incoming_request_id) <= 64 and incoming_request_id.isalnum():
+        request_id = incoming_request_id
+    else:
+        request_id = str(uuid.uuid4())
     token = request_id_var.set(request_id)
 
     start_time = time.perf_counter()
@@ -66,6 +71,13 @@ async def logging_middleware(request: Request, call_next):
         )
 
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         return response
 
     except Exception:

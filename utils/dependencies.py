@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.orm import RevokedToken, User
+from models.orm import Application, Job, RevokedToken, User
 from utils.jwt import verify_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -47,3 +47,42 @@ def require_roles(*allowed_roles):
                                 detail="You do not have permission to access this resource")
         return current_user
     return role_checker
+
+
+def get_authorized_application(
+    application_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Application).join(
+        Job, Application.job_id == Job.id
+    ).filter(
+        Application.id == application_id,
+        Application.is_active.is_(True),
+    )
+
+    if current_user.role == "candidate":
+        query = query.filter(
+            Application.candidate_id == current_user.id
+        )
+
+    elif current_user.role == "admin":
+        query = query.filter(
+            Job.created_by == current_user.id
+        )
+
+    elif current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this application",
+        )
+
+    application = query.first()
+
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+
+    return application

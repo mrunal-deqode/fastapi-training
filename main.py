@@ -19,6 +19,7 @@ from redis_client import redis_client
 
 # from routers import applications, auth, candidates, jobs, module8_practice, super_admin
 from routers.api_v1 import api_v1_router
+from utils.dependencies import require_roles
 
 setup_logging()
 
@@ -30,8 +31,13 @@ if settings.SENTRY_DSN:
 app = FastAPI(title="Recruitment & Hiring")
 app.middleware("http")(logging_middleware)
 
-app.add_middleware(CORSMiddleware, allow_origins=[
-                   "http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+)
 
 
 # app.include_router(applications.router)
@@ -128,7 +134,7 @@ def readiness_check(db: Session = Depends(get_db)):
 
 
 @app.get("/metrics", include_in_schema=False)
-def metrics():
+def metrics(current_user=Depends(require_roles("super_admin"))):
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,

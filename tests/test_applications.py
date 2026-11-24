@@ -3,10 +3,10 @@ from models.orm import Job, User
 from utils.security import hash_password
 
 
-def create_admin_token(client, db_session):
+def create_admin_token(client, db_session, email="admin_test@example.com"):
     admin = User(
         full_name="Test Admin",
-        email="admin_test@example.com",
+        email=email,
         hashed_password=hash_password("adminpass123"),
         role="admin",
         is_active=True
@@ -18,7 +18,7 @@ def create_admin_token(client, db_session):
     response = client.post(
         "/api/v1/auth/login",
         data={
-            "username": "admin_test@example.com",
+            "username": email,
             "password": "adminpass123"
         }
     )
@@ -27,10 +27,10 @@ def create_admin_token(client, db_session):
     return response.json()["access_token"]
 
 
-def create_candidate_token(client):
+def create_candidate_token(client, email="applicant_test@example.com"):
     payload = {
         "full_name": "Test Applicant",
-        "email": "applicant_test@example.com",
+        "email": email,
         "password": "password123"
     }
 
@@ -266,3 +266,224 @@ def test_candidate_get_my_applications_unauthorized(client):
     response = client.get("/api/v1/applications/my-applications")
 
     assert response.status_code == 401
+
+
+def test_candidate_cannot_access_another_candidates_application(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+
+    candidate_a_token = create_candidate_token(
+        client, "candidate_a@example.com"
+    )
+    candidate_b_token = create_candidate_token(
+        client, "candidate_b@example.com"
+    )
+
+    job_id = create_test_job(client, admin_token)
+
+    application_response = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Candidate A application."
+        },
+        headers={
+            "Authorization": f"Bearer {candidate_a_token}"
+        }
+    )
+
+    assert application_response.status_code == 201
+    application_id = application_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}",
+        headers={
+            "Authorization": f"Bearer {candidate_b_token}"
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Application not found"
+
+
+def test_candidate_cannot_replace_another_candidates_application(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+    candidate_a = create_candidate_token(client, "replace_a@example.com")
+    candidate_b = create_candidate_token(client, "replace_b@example.com")
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Candidate A application."
+        },
+        headers={"Authorization": f"Bearer {candidate_a}"}
+    )
+    application_id = application.json()["id"]
+
+    response = client.put(
+        f"/api/v1/applications/{application_id}",
+        json={
+            "years_of_experience": 5,
+            "cover_letter": "Unauthorized update."
+        },
+        headers={"Authorization": f"Bearer {candidate_b}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_candidate_cannot_patch_another_candidates_application(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+    candidate_a = create_candidate_token(client, "patch_a@example.com")
+    candidate_b = create_candidate_token(client, "patch_b@example.com")
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Candidate A application."
+        },
+        headers={"Authorization": f"Bearer {candidate_a}"}
+    )
+    application_id = application.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/applications/{application_id}",
+        json={"years_of_experience": 5},
+        headers={"Authorization": f"Bearer {candidate_b}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_candidate_cannot_delete_another_candidates_application(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+    candidate_a = create_candidate_token(client, "delete_a@example.com")
+    candidate_b = create_candidate_token(client, "delete_b@example.com")
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Candidate A application."
+        },
+        headers={"Authorization": f"Bearer {candidate_a}"}
+    )
+    application_id = application.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/applications/{application_id}",
+        headers={"Authorization": f"Bearer {candidate_b}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_candidate_cannot_assign_application_to_another_candidate(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+    candidate_a = create_candidate_token(client, "mass_a@example.com")
+    job_id = create_test_job(client, admin_token)
+
+    response = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "candidate_id": 999999,
+            "years_of_experience": 2,
+            "cover_letter": "Testing mass assignment."
+        },
+        headers={"Authorization": f"Bearer {candidate_a}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_admin_cannot_access_another_admins_application(
+    client, db_session
+):
+    admin_a = create_admin_token(
+        client, db_session, "admin_a@example.com"
+    )
+    admin_b = create_admin_token(
+        client, db_session, "admin_b@example.com"
+    )
+
+    candidate_token = create_candidate_token(
+        client, "admin_bola_candidate@example.com"
+    )
+
+    job_id = create_test_job(client, admin_a)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application."
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+
+    assert application.status_code == 201
+    application_id = application.json()["id"]
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}",
+        headers={"Authorization": f"Bearer {admin_b}"}
+    )
+
+    assert response.status_code == 404
+
+
+def test_admin_cannot_update_another_admins_application_status(
+    client, db_session
+):
+    admin_a = create_admin_token(
+        client, db_session, "status_admin_a@example.com"
+    )
+    admin_b = create_admin_token(
+        client, db_session, "status_admin_b@example.com"
+    )
+
+    candidate_token = create_candidate_token(
+        client, "status_candidate@example.com"
+    )
+
+    job_id = create_test_job(client, admin_a)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application."
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+
+    application_id = application.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/applications/admin/applications/{application_id}/status",
+        json={"status": "Shortlisted"},
+        headers={"Authorization": f"Bearer {admin_b}"}
+    )
+
+    assert response.status_code == 404
