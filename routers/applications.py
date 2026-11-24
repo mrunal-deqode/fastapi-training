@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from database import get_db
 from models.orm import Application, IdempotencyRecord, Job, User
@@ -466,7 +466,9 @@ def get_job_applications(job_id: int, current_user: User = Depends(require_roles
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Jobs Not Found")
 
-    query = db.query(Application).join(
+    query = db.query(Application).options(
+        selectinload(Application.candidate)
+    ).join(
         User, Application.candidate_id == User.id
     ).filter(
         Application.job_id == job_id,
