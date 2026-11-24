@@ -59,6 +59,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+  locust:
+    image: locustio/locust:2.47.0
+    container_name: recruitment-locust
+    restart: unless-stopped
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+    environment:
+      LOCUST_EMAIL: ${LOCUST_EMAIL}
+      LOCUST_PASSWORD: ${LOCUST_PASSWORD}
+    command: >
+      -f /mnt/locust/locustfile.py
+      --host http://app:8000
+      --web-host 0.0.0.0
+    depends_on:
+      app:
+        condition: service_started
 
 volumes:
   postgres_data:
