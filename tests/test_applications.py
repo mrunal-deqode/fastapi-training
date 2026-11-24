@@ -1,3 +1,4 @@
+from sqlalchemy import event
 
 from models.orm import Job, User
 from utils.security import hash_password
@@ -487,3 +488,55 @@ def test_admin_cannot_update_another_admins_application_status(
     )
 
     assert response.status_code == 404
+
+
+def test_admin_applicant_list_uses_efficient_queries(client, db_session):
+    admin_token = create_admin_token(
+        client, db_session, "perf_admin@example.com"
+    )
+    job_id = create_test_job(client, admin_token)
+
+    for index in range(5):
+        candidate_token = create_candidate_token(
+            client, f"perf_candidate_{index}@example.com"
+        )
+
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Performance test application."
+            },
+            headers={
+                "Authorization": f"Bearer {candidate_token}"
+            }
+        )
+        assert response.status_code == 201
+
+    db_session.expunge_all()
+
+    queries = []
+
+    def count_queries(
+        conn, cursor, statement, parameters, context, executemany
+    ):
+        if statement.lstrip().upper().startswith("SELECT"):
+            queries.append(statement)
+
+    connection = db_session.connection()
+    event.listen(connection, "before_cursor_execute", count_queries)
+
+    try:
+        response = client.get(
+            f"/api/v1/applications/admin/jobs/{job_id}/appliactions",
+            headers={
+                "Authorization": f"Bearer {admin_token}"
+            }
+        )
+    finally:
+        event.remove(connection, "before_cursor_execute", count_queries)
+
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 5
+    assert len(queries) == 6
