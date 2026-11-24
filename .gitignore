@@ -7,3 +7,5 @@ __pycache__/
 demo.txt
 .env.*
 !.env.example
+scripts/reset_demo_password.py
+scripts/create_super_admin.py

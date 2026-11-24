@@ -11,9 +11,10 @@ from models.schemas import (
     JobCreate,
     JobResponse,
     JobStatusUpdate,
+    PaginationResponse,
 )
 from utils.dependencies import require_roles
-from utils.module7_dependencies import Pagination
+from utils.module7_dependencies import PagePagination
 from utils.security import hash_password
 
 router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
@@ -43,11 +44,36 @@ def create_admin(data: AdminCreate, current_user: User = Depends(require_roles("
     return new_admin
 
 
-@router.get("/get-admins", response_model=list[AdminCreateResopnse])
-def get_all_admins(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
-    admins = db.query(User).filter(User.role == "admin").all()
+@router.get(
+    "/get-admins",
+    response_model=PaginationResponse[AdminCreateResopnse],
+    summary="List all administrators",
+    description=(
+        "Returns all administrator accounts in the recruitment system "
+        "using page-based pagination. Accessible only to super administrators."
+    ),
+)
+def get_all_admins(
+    current_user: User = Depends(require_roles("super_admin")),
+    db: Session = Depends(get_db),
+    pagination: PagePagination = Depends(PagePagination),
+):
+    query = db.query(User).filter(User.role == "admin")
 
-    return admins
+    total = query.count()
+
+    admins = (
+        query.offset(pagination.skip)
+        .limit(pagination.limit)
+        .all()
+    )
+
+    return {
+        "total": total,
+        "page": pagination.page,
+        "limit": pagination.limit,
+        "items": admins,
+    }
 
 
 @router.get("/get-admin-details", response_model=AdminCreateResopnse)
@@ -104,12 +130,36 @@ def reacticate_admin(admin_id: int, super_admin: User = Depends(require_roles("s
     return {"message": "Admin Acticated Succesfully"}
 
 
-@router.get("/get-candidates", response_model=list[CandidateResponse])
-def get_all_candidates(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db), pagination_data: Pagination = Depends(Pagination)):
-    user_details = db.query(User).filter(User.role == "candidate").offset(
-        pagination_data.skip).limit(pagination_data.limit).all()
+@router.get(
+    "/get-candidates",
+    response_model=PaginationResponse[CandidateResponse],
+    summary="List all candidates",
+    description=(
+        "Returns candidates registered in the recruitment system "
+        "using page-based pagination. Accessible only to super administrators."
+    ),
+)
+def get_all_candidates(
+    current_user: User = Depends(require_roles("super_admin")),
+    db: Session = Depends(get_db),
+    pagination: PagePagination = Depends(PagePagination),
+):
+    query = db.query(User).filter(User.role == "candidate")
 
-    return user_details
+    total = query.count()
+
+    candidates = (
+        query.offset(pagination.skip)
+        .limit(pagination.limit)
+        .all()
+    )
+
+    return {
+        "total": total,
+        "page": pagination.page,
+        "limit": pagination.limit,
+        "items": candidates,
+    }
 
 
 @router.get("/get-candidate-details", response_model=CandidateResponse)
@@ -166,11 +216,37 @@ def reacticate_candidate(user_id: int, current_user: User = Depends(require_role
     return {"message": "User Activated Succesfully"}
 
 
-@router.get("/get-jobs", response_model=list[JobResponse])
-def get_all_jobs(current_user: User = Depends(require_roles("super_admin")), db: Session = Depends(get_db)):
-    job_list = db.query(Job).all()
+@router.get(
+    "/get-jobs",
+    response_model=PaginationResponse[JobResponse],
+    summary="List all jobs",
+    description=(
+        "Returns all jobs in the recruitment system, including active "
+        "and inactive jobs, using page-based pagination. "
+        "Accessible only to super administrators."
+    ),
+)
+def get_all_jobs(
+    current_user: User = Depends(require_roles("super_admin")),
+    db: Session = Depends(get_db),
+    pagination: PagePagination = Depends(PagePagination),
+):
+    query = db.query(Job)
 
-    return job_list
+    total = query.count()
+
+    job_list = (
+        query.offset(pagination.skip)
+        .limit(pagination.limit)
+        .all()
+    )
+
+    return {
+        "total": total,
+        "page": pagination.page,
+        "limit": pagination.limit,
+        "items": job_list,
+    }
 
 
 @router.get("/get-job-detail", response_model=JobResponse)

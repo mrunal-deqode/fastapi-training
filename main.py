@@ -16,7 +16,9 @@ from logging_config import setup_logging
 # from models.orm import User
 from middleware import logging_middleware
 from redis_client import redis_client
-from routers import applications, auth, candidates, jobs, module8_practice, super_admin
+
+# from routers import applications, auth, candidates, jobs, module8_practice, super_admin
+from routers.api_v1 import api_v1_router
 
 setup_logging()
 
@@ -32,13 +34,15 @@ app.add_middleware(CORSMiddleware, allow_origins=[
                    "http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
-app.include_router(applications.router)
-app.include_router(jobs.router)
-app.include_router(auth.router)
-app.include_router(candidates.router)
-app.include_router(super_admin.router)
+# app.include_router(applications.router)
+# app.include_router(jobs.router)
+# app.include_router(auth.router)
+# app.include_router(candidates.router)
+# app.include_router(super_admin.router)
 # app.include_router(module7_practice.router)
-app.include_router(module8_practice.router)
+# app.include_router(module8_practice.router)
+
+app.include_router(api_v1_router)
 
 # demo_key = Demoapikey(expected_key="demo_key")
 

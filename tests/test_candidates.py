@@ -7,11 +7,11 @@ def create_candidate_token(client):
         "password": "password123"
     }
 
-    register_response = client.post("/auth/register", json=payload)
+    register_response = client.post("/api/v1/auth/register", json=payload)
     assert register_response.status_code == 201
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -26,7 +26,7 @@ def test_create_candidate_profile(client):
     candidate_token = create_candidate_token(client)
 
     response = client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "MCA",
@@ -55,12 +55,12 @@ def test_create_duplicate_candidate_profile(client):
     }
 
     first_response = client.post(
-        "/candidates/profile", json=payload, headers=headers
+        "/api/v1/candidates/profile", json=payload, headers=headers
     )
     assert first_response.status_code == 201
 
     second_response = client.post(
-        "/candidates/profile", json=payload, headers=headers
+        "/api/v1/candidates/profile", json=payload, headers=headers
     )
 
     assert second_response.status_code == 409
@@ -72,7 +72,7 @@ def test_get_candidate_profile(client):
 
     # Create profile first
     client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "MCA",
@@ -83,7 +83,7 @@ def test_get_candidate_profile(client):
         headers=headers
     )
 
-    response = client.get("/candidates/profile", headers=headers)
+    response = client.get("/api/v1/candidates/profile", headers=headers)
 
     assert response.status_code == 200
     assert response.json()["address"] == "Indore"
@@ -94,7 +94,7 @@ def test_get_candidate_profile_not_found(client):
     candidate_token = create_candidate_token(client)
 
     response = client.get(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         headers={"Authorization": f"Bearer {candidate_token}"}
     )
 
@@ -107,7 +107,7 @@ def test_update_candidate_full_profile(client):
     headers = {"Authorization": f"Bearer {candidate_token}"}
 
     client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "BCA",
@@ -119,7 +119,7 @@ def test_update_candidate_full_profile(client):
     )
 
     response = client.put(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Pune",
             "education": "MCA",
@@ -140,7 +140,7 @@ def test_update_candidate_full_profile_not_found(client):
     candidate_token = create_candidate_token(client)
 
     response = client.put(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Pune",
             "education": "MCA",
@@ -160,7 +160,7 @@ def test_update_candidate_partial_profile(client):
     headers = {"Authorization": f"Bearer {candidate_token}"}
 
     client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "BCA",
@@ -172,7 +172,7 @@ def test_update_candidate_partial_profile(client):
     )
 
     response = client.patch(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={"skills": "Python, FastAPI, PostgreSQL"},
         headers=headers
     )
@@ -187,7 +187,7 @@ def test_update_candidate_partial_profile_not_found(client):
     candidate_token = create_candidate_token(client)
 
     response = client.patch(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={"skills": "Python"},
         headers={"Authorization": f"Bearer {candidate_token}"}
     )
@@ -201,7 +201,7 @@ def test_update_candidate_profile_empty_patch(client):
 
     # Create profile first
     client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "MCA",
@@ -213,7 +213,7 @@ def test_update_candidate_profile_empty_patch(client):
     )
 
     response = client.patch(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={},
         headers={"Authorization": f"Bearer {candidate_token}"}
     )
@@ -223,13 +223,13 @@ def test_update_candidate_profile_empty_patch(client):
 
 
 def test_get_candidate_profile_unauthorized(client):
-    response = client.get("/candidates/profile")
+    response = client.get("/api/v1/candidates/profile")
     assert response.status_code == 401
 
 
 def test_create_candidate_profile_unauthorized(client):
     response = client.post(
-        "/candidates/profile",
+        "/api/v1/candidates/profile",
         json={
             "address": "Indore",
             "education": "MCA",

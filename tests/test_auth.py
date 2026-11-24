@@ -10,7 +10,7 @@ def test_candidate_registration_success(client):
         "phone": "9876543210"
     }
 
-    response = client.post("/auth/register", json=payload)
+    response = client.post("/api/v1/auth/register", json=payload)
 
     assert response.status_code == 201
     assert response.json()["email"] == payload["email"]
@@ -28,8 +28,8 @@ def test_candidate_registration_duplicate_email(client):
         "phone": "9876543210"
     }
 
-    first_response = client.post("/auth/register", json=payload)
-    second_response = client.post("/auth/register", json=payload)
+    first_response = client.post("/api/v1/auth/register", json=payload)
+    second_response = client.post("/api/v1/auth/register", json=payload)
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
@@ -44,7 +44,7 @@ def test_candidate_registration_invalid_data(client):
         "phone": "123"
     }
 
-    response = client.post("/auth/register", json=payload)
+    response = client.post("/api/v1/auth/register", json=payload)
 
     assert response.status_code == 422
 
@@ -56,10 +56,10 @@ def test_login_success(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -80,10 +80,10 @@ def test_login_wrong_password(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": "wrongpassword"
@@ -96,7 +96,7 @@ def test_login_wrong_password(client):
 
 def test_login_unknown_email(client):
     response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": "unknown@example.com",
             "password": "password123"
@@ -120,7 +120,7 @@ def test_login_inactive_user(client, db_session):
     db_session.commit()
 
     response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": "inactive@example.com",
             "password": "password123"
@@ -138,10 +138,10 @@ def test_get_my_account_success(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -151,7 +151,7 @@ def test_get_my_account_success(client):
     access_token = login_response.json()["access_token"]
 
     response = client.get(
-        "/auth/me",
+        "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {access_token}"}
     )
 
@@ -161,7 +161,7 @@ def test_get_my_account_success(client):
 
 
 def test_get_my_account_unauthorized(client):
-    response = client.get("/auth/me")
+    response = client.get("/api/v1/auth/me")
 
     assert response.status_code == 401
 
@@ -173,10 +173,10 @@ def test_refresh_token_success(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -186,7 +186,7 @@ def test_refresh_token_success(client):
     old_refresh_token = login_response.json()["refresh_token"]
 
     response = client.post(
-        "/auth/refresh",
+        "/api/v1/auth/refresh",
         json={"refresh_token": old_refresh_token}
     )
 
@@ -203,10 +203,10 @@ def test_refresh_token_reuse_rejected(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -216,12 +216,12 @@ def test_refresh_token_reuse_rejected(client):
     old_refresh_token = login_response.json()["refresh_token"]
 
     first_refresh = client.post(
-        "/auth/refresh",
+        "/api/v1/auth/refresh",
         json={"refresh_token": old_refresh_token}
     )
 
     second_refresh = client.post(
-        "/auth/refresh",
+        "/api/v1/auth/refresh",
         json={"refresh_token": old_refresh_token}
     )
 
@@ -231,7 +231,7 @@ def test_refresh_token_reuse_rejected(client):
 
 def test_refresh_token_invalid(client):
     response = client.post(
-        "/auth/refresh",
+        "/api/v1/auth/refresh",
         json={"refresh_token": "invalid.token.value"}
     )
 
@@ -245,10 +245,10 @@ def test_logout_success(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -258,7 +258,7 @@ def test_logout_success(client):
     tokens = login_response.json()
 
     response = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json={"refresh_token": tokens["refresh_token"]},
         headers={
             "Authorization": f"Bearer {tokens['access_token']}"
@@ -271,7 +271,7 @@ def test_logout_success(client):
 
 def test_logout_without_access_token(client):
     response = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json={"refresh_token": "invalid.token.value"}
     )
 
@@ -285,10 +285,10 @@ def test_logout_rejects_reused_refresh_token(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -306,13 +306,13 @@ def test_logout_rejects_reused_refresh_token(client):
     }
 
     first_response = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json=refresh_payload,
         headers=headers
     )
 
     second_response = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json=refresh_payload,
         headers=headers
     )
@@ -328,10 +328,10 @@ def test_logout_revokes_access_token(client):
         "password": "password123"
     }
 
-    client.post("/auth/register", json=payload)
+    client.post("/api/v1/auth/register", json=payload)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         data={
             "username": payload["email"],
             "password": payload["password"]
@@ -345,7 +345,7 @@ def test_logout_revokes_access_token(client):
     }
 
     logout_response = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json={"refresh_token": tokens["refresh_token"]},
         headers=headers
     )
@@ -353,7 +353,7 @@ def test_logout_revokes_access_token(client):
     assert logout_response.status_code == 200
 
     account_response = client.get(
-        "/auth/me",
+        "/api/v1/auth/me",
         headers=headers
     )
 

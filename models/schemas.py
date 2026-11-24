@@ -1,10 +1,19 @@
 from datetime import date
-from typing import Literal
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-# from test_security import password
+T = TypeVar("T")
 
+
+class PaginationResponse(BaseModel, Generic[T]):
+    total: int
+    page: int
+    limit: int
+    items: list[T]
+
+
+# from test_security import password
 ApplicationStatus = Literal[
     "Applied",
     "Under Review",
@@ -22,6 +31,18 @@ class ApplicationCreate(BaseModel):
 
 
 class CandidateApplicationCreate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "job_id": 5,
+                    "years_of_experience": 2.0,
+                    "cover_letter": "I have experience building REST APIs using Python and FastAPI."
+                }
+            ]
+        }
+    )
+
     job_id: int = Field(gt=0)
     years_of_experience: float = Field(ge=0)
     cover_letter: str | None = None
@@ -58,6 +79,23 @@ class StatusUpdate(BaseModel):
 
 
 class JobCreate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "title": "Python Backend Developer",
+                    "description": "Develop and maintain backend services using Python and FastAPI.",
+                    "job_type": "Full-time",
+                    "deadline": "2026-12-31",
+                    "location": "Indore",
+                    "min_experience_years": 1,
+                    "max_experience_years": 3,
+                    "salary_min": 300000,
+                    "salary_max": 600000
+                }
+            ]
+        }
+    )
     title: str = Field(min_length=2, max_length=100)
     description: str = Field(min_length=10)
     job_type: str
@@ -201,3 +239,8 @@ class TokenResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+class JobInfoResponse(BaseModel):
+    job_id: int
+    your_user_agent: str | None
