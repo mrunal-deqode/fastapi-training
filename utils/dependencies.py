@@ -54,35 +54,40 @@ def get_authorized_application(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Application).join(
-        Job, Application.job_id == Job.id
-    ).filter(
-        Application.id == application_id,
-        Application.is_active.is_(True),
+    application = (
+        db.query(Application)
+        .join(Job, Application.job_id == Job.id)
+        .filter(
+            Application.id == application_id,
+            Application.is_active.is_(True),
+        )
+        .first()
     )
-
-    if current_user.role == "candidate":
-        query = query.filter(
-            Application.candidate_id == current_user.id
-        )
-
-    elif current_user.role == "admin":
-        query = query.filter(
-            Job.created_by == current_user.id
-        )
-
-    elif current_user.role != "super_admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to access this application",
-        )
-
-    application = query.first()
 
     if not application:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found",
+        )
+
+    if current_user.role == "candidate":
+        if application.candidate_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this application",
+            )
+
+    elif current_user.role == "admin":
+        if application.job.created_by != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this application",
+            )
+
+    elif current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this application",
         )
 
     return application

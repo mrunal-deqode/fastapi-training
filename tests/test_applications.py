@@ -1,6 +1,7 @@
 from sqlalchemy import event
 
-from models.orm import Job, User
+from models.orm import Application, Job, User
+from utils.jwt import create_access_token
 from utils.security import hash_password
 
 
@@ -305,8 +306,9 @@ def test_candidate_cannot_access_another_candidates_application(
         }
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Application not found"
+    assert response.status_code == 403
+    assert response.json()[
+        "detail"] == "You do not have permission to access this application"
 
 
 def test_candidate_cannot_replace_another_candidates_application(
@@ -337,7 +339,7 @@ def test_candidate_cannot_replace_another_candidates_application(
         headers={"Authorization": f"Bearer {candidate_b}"}
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_candidate_cannot_patch_another_candidates_application(
@@ -365,7 +367,7 @@ def test_candidate_cannot_patch_another_candidates_application(
         headers={"Authorization": f"Bearer {candidate_b}"}
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_candidate_cannot_delete_another_candidates_application(
@@ -392,7 +394,7 @@ def test_candidate_cannot_delete_another_candidates_application(
         headers={"Authorization": f"Bearer {candidate_b}"}
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_candidate_cannot_assign_application_to_another_candidate(
@@ -450,7 +452,7 @@ def test_admin_cannot_access_another_admins_application(
         headers={"Authorization": f"Bearer {admin_b}"}
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 def test_admin_cannot_update_another_admins_application_status(
@@ -487,7 +489,12 @@ def test_admin_cannot_update_another_admins_application_status(
         headers={"Authorization": f"Bearer {admin_b}"}
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
+    updated_application = db_session.query(Application).filter(
+        Application.id == application_id
+    ).first()
+
+    assert updated_application.status == "Applied"
 
 
 def test_admin_applicant_list_uses_efficient_queries(client, db_session):
@@ -540,3 +547,225 @@ def test_admin_applicant_list_uses_efficient_queries(client, db_session):
     assert response.status_code == 200
     assert len(response.json()["items"]) == 5
     assert len(queries) == 6
+
+
+def test_candidate_cannot_access_admin_applicant_list(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+    job_id = create_test_job(client, admin_token)
+
+    response = client.get(
+        f"/api/v1/applications/admin/jobs/{job_id}/appliactions",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_candidate_cannot_access_admin_applicant_details(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application.",
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert application.status_code == 201
+    application_id = application.json()["id"]
+
+    response = client.get(
+        f"/api/v1/applications/admin/applications/{application_id}",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_candidate_cannot_update_application_status(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application.",
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert application.status_code == 201
+    application_id = application.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/applications/admin/applications/{application_id}/status",
+        json={"status": "Shortlisted"},
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_super_admin_can_access_any_candidates_application(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application.",
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert application.status_code == 201
+    application_id = application.json()["id"]
+
+    super_admin = User(
+        full_name="Test Super Admin",
+        email="super_admin_test@example.com",
+        hashed_password=hash_password("password123"),
+        role="super_admin",
+        is_active=True,
+    )
+
+    db_session.add(super_admin)
+    db_session.commit()
+    db_session.refresh(super_admin)
+
+    super_admin_token = create_access_token({
+        "sub": str(super_admin.id),
+        "role": super_admin.role,
+    })
+
+    response = client.get(
+        f"/api/v1/applications/{application_id}",
+        headers={"Authorization": f"Bearer {super_admin_token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == application_id
+
+
+def test_admin_cannot_view_another_admins_applicant_details(
+    client, db_session
+):
+    admin_a = create_admin_token(
+        client, db_session, "detail_admin_a@example.com"
+    )
+    admin_b = create_admin_token(
+        client, db_session, "detail_admin_b@example.com"
+    )
+    candidate_token = create_candidate_token(
+        client, "detail_candidate@example.com"
+    )
+
+    job_id = create_test_job(client, admin_a)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application.",
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert application.status_code == 201
+
+    application_id = application.json()["id"]
+
+    response = client.get(
+        f"/api/v1/applications/admin/applications/{application_id}",
+        headers={"Authorization": f"Bearer {admin_b}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "You do not have permission to view this application"
+    )
+
+
+def test_admin_cannot_list_another_admins_applicants(client, db_session):
+    admin_a = create_admin_token(
+        client, db_session, "list_admin_a@example.com"
+    )
+    admin_b = create_admin_token(
+        client, db_session, "list_admin_b@example.com"
+    )
+
+    job_id = create_test_job(client, admin_a)
+
+    response = client.get(
+        f"/api/v1/applications/admin/jobs/{job_id}/appliactions",
+        headers={"Authorization": f"Bearer {admin_b}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "You do not have permission to view applicants for this job"
+    )
+
+
+def test_admin_can_only_list_own_jobs(client, db_session):
+    admin_a = create_admin_token(
+        client, db_session, "jobs_admin_a@example.com"
+    )
+    admin_b = create_admin_token(
+        client, db_session, "jobs_admin_b@example.com"
+    )
+
+    job_a = create_test_job(client, admin_a)
+    create_test_job(client, admin_b)
+
+    response = client.get(
+        "/api/v1/jobs/manage",
+        headers={"Authorization": f"Bearer {admin_a}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["id"] == job_a
+
+
+def test_candidate_cannot_access_admin_job_management(client):
+    candidate_token = create_candidate_token(client)
+
+    response = client.get(
+        "/api/v1/jobs/manage",
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_candidate_cannot_create_job(client):
+    candidate_token = create_candidate_token(client)
+
+    response = client.post(
+        "/api/v1/jobs",
+        json={
+            "title": "Python Developer",
+            "description": "Looking for a Python developer.",
+            "job_type": "Full-time",
+            "deadline": "2027-12-31",
+            "location": "Indore",
+            "min_experience_years": 0,
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert response.status_code == 403
