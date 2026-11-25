@@ -2,7 +2,7 @@
 import hashlib
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -13,6 +13,7 @@ from models.schemas import (
     ApplicantDetailsResponse,
     ApplicationReplace,
     ApplicationResponse,
+    ApplicationStatus,
     ApplicationUpdate,
     CandidateApplicationCreate,
     PaginationResponse,
@@ -209,16 +210,26 @@ def get_my_application(
     current_user: User = Depends(require_roles("candidate")),
     db: Session = Depends(get_db),
     pagination: PagePagination = Depends(PagePagination),
+    status_filter: ApplicationStatus | None = Query(
+        default=None, alias="status"),
+    job_id: int | None = Query(default=None, gt=0),
 ):
     query = db.query(Application).filter(
         Application.candidate_id == current_user.id,
         Application.is_active.is_(True),
     )
 
+    if status_filter is not None:
+        query = query.filter(Application.status == status_filter)
+
+    if job_id is not None:
+        query = query.filter(Application.job_id == job_id)
+
     total = query.count()
 
     applications = (
-        query.offset(pagination.skip)
+        query.order_by(Application.created_at.desc())
+        .offset(pagination.skip)
         .limit(pagination.limit)
         .all()
     )
@@ -455,8 +466,15 @@ def delete_application(
         422: {"description": "Invalid job ID"}
     }
 )
-def get_job_applications(job_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db), pagination: PagePagination = Depends(PagePagination)):
-
+def get_job_applications(
+    job_id: int,
+    current_user: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+    pagination: PagePagination = Depends(PagePagination),
+    status_filter: ApplicationStatus | None = Query(
+        default=None, alias="status"
+    ),
+):
     job = db.query(Job).filter(
         Job.id == job_id,
         Job.is_active.is_(True),
@@ -480,13 +498,17 @@ def get_job_applications(job_id: int, current_user: User = Depends(require_roles
         User, Application.candidate_id == User.id
     ).filter(
         Application.job_id == job_id,
-        Application.is_active.is_(True)
+        Application.is_active.is_(True),
     )
+
+    if status_filter is not None:
+        query = query.filter(Application.status == status_filter)
 
     total = query.count()
 
     applications = (
-        query.offset(pagination.skip)
+        query.order_by(Application.created_at.desc())
+        .offset(pagination.skip)
         .limit(pagination.limit)
         .all()
     )

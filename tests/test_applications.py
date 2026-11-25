@@ -769,3 +769,221 @@ def test_candidate_cannot_create_job(client):
     )
 
     assert response.status_code == 403
+
+
+def test_candidate_filter_applications_by_status(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+    job_id = create_test_job(client, admin_token)
+
+    application = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Test application."
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+    assert application.status_code == 201
+
+    db_application = db_session.query(Application).filter(
+        Application.id == application.json()["id"]
+    ).first()
+    db_application.status = "Shortlisted"
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/applications/my-applications?status=Shortlisted",
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["status"] == "Shortlisted"
+
+
+def test_candidate_filter_applications_by_job_id(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+
+    job_id_1 = create_test_job(client, admin_token)
+    job_id_2 = create_test_job(client, admin_token)
+
+    for job_id in [job_id_1, job_id_2]:
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Test application."
+            },
+            headers={"Authorization": f"Bearer {candidate_token}"}
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        f"/api/v1/applications/my-applications?job_id={job_id_1}",
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["job_id"] == job_id_1
+
+
+def test_candidate_filter_with_pagination(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    candidate_token = create_candidate_token(client)
+
+    job_ids = [
+        create_test_job(client, admin_token)
+        for _ in range(3)
+    ]
+
+    for job_id in job_ids:
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Test application."
+            },
+            headers={"Authorization": f"Bearer {candidate_token}"}
+        )
+        assert response.status_code == 201
+
+    applications = db_session.query(Application).filter(
+        Application.candidate_id == db_session.query(User.id).filter(
+            User.email == "applicant_test@example.com"
+        ).scalar_subquery()
+    ).all()
+
+    applications[1].status = "Shortlisted"
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/applications/my-applications"
+        "?status=Applied&page=1&limit=1",
+        headers={"Authorization": f"Bearer {candidate_token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert response.json()["page"] == 1
+    assert response.json()["limit"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["status"] == "Applied"
+
+
+def test_candidate_filters_cannot_expose_another_candidates_applications(
+    client, db_session
+):
+    admin_token = create_admin_token(client, db_session)
+    candidate_a = create_candidate_token(client, "filter_a@example.com")
+    candidate_b = create_candidate_token(client, "filter_b@example.com")
+    job_id = create_test_job(client, admin_token)
+
+    for token in [candidate_a, candidate_b]:
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Test application."
+            },
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        "/api/v1/applications/my-applications?status=Applied",
+        headers={"Authorization": f"Bearer {candidate_a}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["candidate_id"] != (
+        db_session.query(User.id)
+        .filter(User.email == "filter_b@example.com")
+        .scalar()
+    )
+
+
+def test_admin_filter_applicants_by_status(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    job_id = create_test_job(client, admin_token)
+
+    for index in range(2):
+        candidate_token = create_candidate_token(
+            client, f"admin_filter_{index}@example.com"
+        )
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Admin filter test."
+            },
+            headers={"Authorization": f"Bearer {candidate_token}"}
+        )
+        assert response.status_code == 201
+
+        if index == 1:
+            application = db_session.query(Application).filter(
+                Application.id == response.json()["id"]
+            ).first()
+            application.status = "Shortlisted"
+            db_session.commit()
+
+    response = client.get(
+        f"/api/v1/applications/admin/jobs/{job_id}/appliactions"
+        "?status=Shortlisted",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["status"] == "Shortlisted"
+
+
+def test_admin_filter_applicants_with_pagination(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+    job_id = create_test_job(client, admin_token)
+
+    for index in range(3):
+        candidate_token = create_candidate_token(
+            client, f"admin_page_filter_{index}@example.com"
+        )
+        response = client.post(
+            "/api/v1/applications",
+            json={
+                "job_id": job_id,
+                "years_of_experience": 2,
+                "cover_letter": "Admin pagination test."
+            },
+            headers={"Authorization": f"Bearer {candidate_token}"}
+        )
+        assert response.status_code == 201
+
+        if index == 2:
+            application = db_session.query(Application).filter(
+                Application.id == response.json()["id"]
+            ).first()
+            application.status = "Rejected"
+            db_session.commit()
+
+    response = client.get(
+        f"/api/v1/applications/admin/jobs/{job_id}/appliactions"
+        "?status=Applied&page=1&limit=1",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert response.json()["page"] == 1
+    assert response.json()["limit"] == 1
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["status"] == "Applied"
