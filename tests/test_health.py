@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from models.orm import User
@@ -51,3 +53,29 @@ def test_metrics_role_access(client, db_session, role, expected_status):
     )
 
     assert response.status_code == expected_status
+
+
+def test_request_id_preserves_valid_uuid(client):
+    request_id = str(uuid.uuid4())
+
+    response = client.get(
+        "/health",
+        headers={"X-Request-ID": request_id},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == request_id
+
+
+def test_request_id_replaces_invalid_value(client):
+    response = client.get(
+        "/health",
+        headers={"X-Request-ID": "invalid request id!"}
+    )
+
+    assert response.status_code == 200
+
+    generated_id = response.headers["X-Request-ID"]
+
+    assert generated_id != "invalid request id!"
+    uuid.UUID(generated_id)
