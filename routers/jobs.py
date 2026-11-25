@@ -12,7 +12,7 @@ from models.schemas import (
     JobResponse,
     PaginationResponse,
 )
-from redis_client import clear_job_cache, redis_client
+from redis_client import clear_dashboard_cache, clear_job_cache, redis_client
 from utils.dependencies import require_roles
 from utils.module7_dependencies import PagePagination
 
@@ -285,6 +285,7 @@ def create_job(
 
     db.add(new_job)
     db.commit()
+    clear_dashboard_cache(current_user.id)
     db.refresh(new_job)
 
     clear_job_cache()

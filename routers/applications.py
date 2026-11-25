@@ -19,6 +19,7 @@ from models.schemas import (
     PaginationResponse,
     StatusUpdate,
 )
+from redis_client import clear_dashboard_cache
 
 # import time
 from tasks import send_application_status_email
@@ -135,6 +136,11 @@ def create_application(
             )
 
         db.commit()
+        clear_dashboard_cache(current_user.id)
+
+        job = db.query(Job).filter(Job.id == new_application.job_id).first()
+        if job:
+            clear_dashboard_cache(job.created_by)
 
     except IntegrityError:
         db.rollback()
@@ -323,6 +329,8 @@ def replace_application(
 
     try:
         db.commit()
+        clear_dashboard_cache(application.candidate_id)
+        clear_dashboard_cache(application.job.created_by)
         db.refresh(application)
 
     except IntegrityError:
@@ -393,6 +401,8 @@ def update_application(
         application.cover_letter = changes["cover_letter"]
 
     db.commit()
+    clear_dashboard_cache(application.candidate_id)
+    clear_dashboard_cache(application.job.created_by)
     db.refresh(application)
 
     return application
@@ -423,6 +433,8 @@ def delete_application(
     application.is_active = False
 
     db.commit()
+    clear_dashboard_cache(application.candidate_id)
+    clear_dashboard_cache(application.job.created_by)
 
     return None
 
@@ -667,6 +679,8 @@ def update_application_status(application_id: int, data: StatusUpdate, current_u
 
     db.commit()
     db.refresh(application)
+    clear_dashboard_cache(application.candidate_id)
+    clear_dashboard_cache(application.job.created_by)
 
     send_application_status_email.delay(
         application.candidate.email,

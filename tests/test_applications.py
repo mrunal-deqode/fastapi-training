@@ -987,3 +987,61 @@ def test_admin_filter_applicants_with_pagination(client, db_session):
     assert response.json()["limit"] == 1
     assert len(response.json()["items"]) == 1
     assert response.json()["items"][0]["status"] == "Applied"
+
+
+def test_updating_application_status_invalidates_both_dashboards(
+    client, db_session, monkeypatch
+):
+    import routers.applications as applications_router
+
+    invalidated_users = []
+
+    def fake_clear_dashboard_cache(user_id):
+        invalidated_users.append(user_id)
+
+    monkeypatch.setattr(
+        applications_router,
+        "clear_dashboard_cache",
+        fake_clear_dashboard_cache,
+    )
+
+    admin_token = create_admin_token(
+        client, db_session, "cache_admin@example.com"
+    )
+    candidate_token = create_candidate_token(
+        client, "cache_candidate@example.com"
+    )
+    job_id = create_test_job(client, admin_token)
+
+    application_response = client.post(
+        "/api/v1/applications",
+        json={
+            "job_id": job_id,
+            "years_of_experience": 2,
+            "cover_letter": "Testing dashboard invalidation.",
+        },
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
+
+    assert application_response.status_code == 201
+    application_id = application_response.json()["id"]
+
+    # Ignore invalidations caused by creating the application.
+    invalidated_users.clear()
+
+    response = client.patch(
+        f"/api/v1/applications/admin/applications/{application_id}/status",
+        json={"status": "Shortlisted"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+
+    candidate = db_session.query(User).filter_by(
+        email="cache_candidate@example.com"
+    ).first()
+    admin = db_session.query(User).filter_by(
+        email="cache_admin@example.com"
+    ).first()
+
+    assert set(invalidated_users) == {candidate.id, admin.id}

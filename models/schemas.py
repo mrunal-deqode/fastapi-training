@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -253,3 +253,34 @@ class RefreshTokenRequest(BaseModel):
 class JobInfoResponse(BaseModel):
     job_id: int
     your_user_agent: str | None
+
+
+class DashboardApplicationItem(BaseModel):
+    application_id: int
+    job_id: int
+    job_title: str
+    status: ApplicationStatus
+    applied_at: datetime
+
+
+class DashboardApplicantItem(BaseModel):
+    application_id: int
+    candidate_id: int
+    candidate_name: str | None
+    job_id: int
+    job_title: str
+    status: ApplicationStatus
+    applied_at: datetime
+
+
+class CandidateDashboardResponse(BaseModel):
+    total_applications: int
+    status_counts: dict[str, int]
+    recent_applications: list[DashboardApplicationItem]
+
+
+class AdminDashboardResponse(BaseModel):
+    total_jobs: int
+    total_applications: int
+    status_counts: dict[str, int]
+    recent_applicants: list[DashboardApplicantItem]
