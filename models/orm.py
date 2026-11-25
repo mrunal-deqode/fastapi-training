@@ -7,12 +7,12 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
-    Index,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
