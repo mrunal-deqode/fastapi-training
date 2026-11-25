@@ -457,14 +457,22 @@ def delete_application(
 )
 def get_job_applications(job_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db), pagination: PagePagination = Depends(PagePagination)):
 
-    jobs = db.query(Job).filter(
+    job = db.query(Job).filter(
         Job.id == job_id,
-        Job.created_by == current_user.id
+        Job.is_active.is_(True),
     ).first()
 
-    if not jobs:
+    if not job:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Jobs Not Found")
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Jobs Not Found",
+        )
+
+    if job.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view applicants for this job",
+        )
 
     query = db.query(Application).options(
         selectinload(Application.candidate)
@@ -545,19 +553,21 @@ def get_job_applications(job_id: int, current_user: User = Depends(require_roles
 )
 def get_admin_applicant_details(application_id: int, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
 
-    application = db.query(Application).join(
-        Job,
-        Application.job_id == Job.id,
-    ).filter(
+    application = db.query(Application).filter(
         Application.id == application_id,
         Application.is_active.is_(True),
-        Job.created_by == current_user.id,
     ).first()
 
     if not application:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found or you don't have permission to view it",
+            detail="Application not found",
+        )
+
+    if application.job.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this application",
         )
 
     candidate = application.candidate
@@ -613,19 +623,22 @@ def get_admin_applicant_details(application_id: int, current_user: User = Depend
     }
 )
 def update_application_status(application_id: int, data: StatusUpdate, current_user: User = Depends(require_roles("admin")), db: Session = Depends(get_db)):
-    application = db.query(Application).join(
-        Job,
-        Application.job_id == Job.id
-    ).filter(
+
+    application = db.query(Application).filter(
         Application.id == application_id,
         Application.is_active.is_(True),
-        Job.created_by == current_user.id
     ).first()
 
     if not application:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found or you don't have permission to update it"
+            detail="Application not found",
+        )
+
+    if application.job.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this application",
         )
 
     application.status = data.status

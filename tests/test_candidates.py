@@ -1,9 +1,13 @@
 
 
-def create_candidate_token(client):
+from models.orm import User
+from utils.security import hash_password
+
+
+def create_candidate_token(client, email="applicant_test@example.com"):
     payload = {
         "full_name": "Test Applicant",
-        "email": "applicant_test@example.com",
+        "email": email,
         "password": "password123"
     }
 
@@ -240,3 +244,116 @@ def test_create_candidate_profile_unauthorized(client):
     )
 
     assert response.status_code == 401
+
+
+def create_admin_token(client, db_session):
+    admin = User(
+        full_name="Test Admin",
+        email="candidate_profile_admin@example.com",
+        hashed_password=hash_password("adminpass123"),
+        role="admin",
+        is_active=True
+    )
+    db_session.add(admin)
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": "candidate_profile_admin@example.com",
+            "password": "adminpass123"
+        }
+    )
+
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def test_admin_cannot_create_candidate_profile(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+
+    response = client.post(
+        "/api/v1/candidates/profile",
+        json={"address": "Indore", "education": "MCA"},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_cannot_view_candidate_profile(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+
+    response = client.get(
+        "/api/v1/candidates/profile",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_cannot_update_candidate_profile(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+
+    response = client.put(
+        "/api/v1/candidates/profile",
+        json={
+            "address": "Indore",
+            "education": "MCA",
+            "experience": "1 year",
+            "skills": "Python",
+            "resume_url": None
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_cannot_patch_candidate_profile(client, db_session):
+    admin_token = create_admin_token(client, db_session)
+
+    response = client.patch(
+        "/api/v1/candidates/profile",
+        json={"skills": "Python"},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+
+    assert response.status_code == 403
+
+
+def test_candidate_cannot_access_another_candidate_profile(client):
+    candidate_a_token = create_candidate_token(
+        client, "candidate_a@example.com"
+    )
+    candidate_b_token = create_candidate_token(
+        client, "candidate_b@example.com"
+    )
+
+    headers_a = {"Authorization": f"Bearer {candidate_a_token}"}
+    headers_b = {"Authorization": f"Bearer {candidate_b_token}"}
+
+    create_response = client.post(
+        "/api/v1/candidates/profile",
+        json={
+            "address": "Indore",
+            "education": "MCA",
+            "experience": "1 year",
+            "skills": "Python",
+            "resume_url": None
+        },
+        headers=headers_a
+    )
+    # print("Candidate A:", candidate_a_token)
+    # print("Create response:", create_response.status_code)
+    # print("Response body:", create_response.json())
+    assert create_response.status_code == 201
+
+    # Candidate B can only see their own profile, which does not exist.
+    response = client.get(
+        "/api/v1/candidates/profile",
+        headers=headers_b
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User Profile Not Found"
