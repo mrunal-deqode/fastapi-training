@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -104,6 +105,11 @@ class Application(Base):
     __tablename__ = "applications"
     __table_args__ = (
         UniqueConstraint("candidate_id", "job_id"),
+        Index(
+            "ix_applications_job_id_is_active",
+            "job_id",
+            "is_active",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
