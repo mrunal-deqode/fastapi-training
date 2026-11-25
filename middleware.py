@@ -20,7 +20,11 @@ class RequestIdFilter(logging.Filter):
 async def logging_middleware(request: Request, call_next):
     incoming_request_id = request.headers.get("X-Request-ID")
 
-    if incoming_request_id and len(incoming_request_id) <= 64 and incoming_request_id.isalnum():
+    if (
+        incoming_request_id
+        and len(incoming_request_id) <= 64
+        and all(char.isalnum() or char in "-_" for char in incoming_request_id)
+    ):
         request_id = incoming_request_id
     else:
         request_id = str(uuid.uuid4())

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    CORS_ORIGINS: str = "http://localhost:5173"
+
     SENTRY_DSN: str | None = None
 
     model_config = SettingsConfigDict(
